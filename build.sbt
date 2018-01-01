@@ -19,6 +19,3 @@ scalacOptions ++= Seq(
 )
 scalacOptions in (Compile, console) ~= {_.filterNot(_ == "-Ywarn-unused-import")}
 scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value
-
-fork in Test := true
-javaOptions in Test += s"-Dprety.testing.integration.dir=${baseDirectory.value}/integration-test"

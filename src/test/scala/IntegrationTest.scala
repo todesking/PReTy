@@ -9,15 +9,11 @@ class IntegrationTest extends FunSpec {
   init()
 
   private[this] def init(): Unit = {
-    val baseDirKey = "prety.testing.integration.dir"
-    val baseDir = sys.props.get(baseDirKey).filter(_.nonEmpty).getOrElse {
-      throw new RuntimeException(s"System property $baseDirKey is not set")
-    }
-    println(s"Integration test: baseDir=${baseDir}")
-    val root = AbstractFile.getDirectory(baseDir)
-    require(root != null)
-
-    registerTests(root)
+    val baseDir = new java.io.File(getClass.getResource("/integration-test").toURI).getPath
+    println(s"baseDir=$baseDir")
+    val base = AbstractFile.getDirectory(baseDir)
+    assert(base != null)
+    registerTests(base)
   }
 
   private[this] def registerTests(dir: AbstractFile): Unit = {
