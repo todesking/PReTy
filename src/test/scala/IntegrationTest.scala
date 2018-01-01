@@ -1,5 +1,7 @@
 package com.todesking.prety.integration_test
 
+import com.todesking.prety.scalac_plugin.PretyPlugin
+
 import org.scalatest.FunSpec
 import scala.reflect.io.AbstractFile
 
@@ -64,6 +66,7 @@ class IntegrationTest extends FunSpec {
 
 object Compiler {
   // ref: https://stackoverflow.com/questions/4713031/how-to-use-scalatest-to-develop-a-compiler-plugin-in-scala/4937135#4937135
+  // ref: https://stackoverflow.com/questions/4713031/how-to-use-scalatest-to-develop-a-compiler-plugin-in-scala/11710337#11710337
   import scala.tools.nsc.{ Settings, Global }
   import scala.tools.nsc.io.VirtualDirectory
   import scala.tools.nsc.util.ClassPath
@@ -87,8 +90,8 @@ object Compiler {
     val reporter = new StoreReporter
 
     val compiler = new Global(settings, reporter) {
-      // override protected def loadRoughPluginsList: List[Plugin] =
-      //   new DivByZero(this) :: super.loadRoughPluginsList
+      override protected def loadRoughPluginsList =
+        new PretyPlugin(this) :: super.loadRoughPluginsList
     }
 
     new compiler.Run().compileSources(sources)
