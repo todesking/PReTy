@@ -35,6 +35,10 @@ class IntegrationTest extends FunSpec {
 
   private[this] def assertCompile(f: AbstractFile): Unit = {
     val content = new String(f.toByteArray)
+    if (content.startsWith("// pending\n")) {
+      pending
+      return
+    }
     val (_, linesWithOffset) = content.split("\n")
       .foldLeft(0 -> Seq.empty[(Int, String)]) {
         case ((off, ls), line) =>
