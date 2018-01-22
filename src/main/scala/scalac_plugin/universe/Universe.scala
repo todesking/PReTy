@@ -54,6 +54,10 @@ trait Universe extends AnyRef
       val applyCs = templateOf(sym)
         .apply(self.value, value, argss.map(_.map(_.value)))
       selfCs ++ argCs ++ applyCs
+    case AST.Super(tpe, value) =>
+      Seq()
+    case AST.Select(tpe, value, target, sym) =>
+      Seq()
   }
 
   def templateOf(sym: FunSym): Template
@@ -85,6 +89,7 @@ trait Universe extends AnyRef
     ???
   }
   def infer(constraints: Seq[Constraint]): Map[Value, Pred] = {
+    println(constraints.mkString("\n"))
     val g = new Graph(constraints, Map()).infer()
     if (g.unassignedValues.nonEmpty) {
       throw new RuntimeException(s"Infer failed")

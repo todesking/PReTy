@@ -29,7 +29,7 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
   }
 
   private[this] def buildTemplate(f: FunSym, asts: Seq[Lang.AST.Pred]): Template = {
-    val self = Value.fresh()
+    val self = Value.fresh("<this>")
     val paramss = funParamNames(f).map { ns => ns.map { _ => Value.fresh() } }
     val nameToValue = funParamNames(f).zip(paramss).flatMap {
       case (ns, vs) =>
@@ -107,32 +107,41 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
           AST.FunDef(
             sym,
             sym.returnType,
-            Value.fresh(),
+            Value.fresh(s"fun:$name"),
             vparamss.map(_.map(parseValDef)),
             if (rhs.isEmpty) None else Some(parseExpr(rhs))))
+      case vd @ ValDef(mods, name, tpt, rhs) =>
+        Seq(parseValDef(vd))
       case other =>
         Seq(parseExpr(other))
     }
 
     def parseValDef(t: Tree): AST.ValDef = t match {
       case vd @ ValDef(mods, name, tpt, rhs) =>
-        AST.ValDef(vd.symbol, tpt.symbol.selfType, Value.fresh(), if (rhs.isEmpty) None else Some(parseExpr(rhs)))
+        AST.ValDef(vd.symbol, tpt.symbol.selfType, Value.fresh(s"val:$name"), if (rhs.isEmpty) None else Some(parseExpr(rhs)))
       case unk => unknown("ValDef", unk)
     }
 
     def parseExpr(t: Tree): AST.Expr = t match {
       case b @ Block(stats, expr) =>
-        AST.Block(b.tpe, Value.fresh(), stats.flatMap(parseImpl), parseExpr(expr))
+        AST.Block(b.tpe, Value.fresh("{...}"), stats.flatMap(parseImpl), parseExpr(expr))
       case Apply(fun, args) =>
         val (self, funSym, tpe) = parseFun(fun)
-        AST.Apply(self, funSym, tpe, Value.fresh(), Seq(args.map(parseExpr)))
+        AST.Apply(self, funSym, tpe, Value.fresh(t.toString), Seq(args.map(parseExpr)))
       case t @ This(qual) =>
         AST.This(t.tpe, Value.fresh())
       case Literal(Constant(v)) =>
         v match {
-          case i: Int => AST.IntLiteral(Value.fresh(), i)
-          case u: Unit => AST.UnitLiteral(Value.fresh())
+          case i: Int => AST.IntLiteral(Value.fresh(s"lit:$i"), i)
+          case u: Unit => AST.UnitLiteral(Value.fresh(s"lit:()"))
         }
+      case sel @ Select(qual, name) =>
+        val target = parseExpr(qual)
+        AST.Select(sel.tpe, Value.fresh(s"sel:$name"), target, sel.symbol)
+      case s @ Super(qual, mix) =>
+        AST.Super(s.tpe, Value.fresh(s.toString))
+      case i @ Ident(name) =>
+        AST.ValRef(i.symbol, i.tpe, Value.fresh(s"ref:$name"))
       case unk => unknown("Expr", unk)
     }
 
@@ -140,11 +149,7 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
       case sel @ Select(qual, name) =>
         val funSym = sel.symbol.asMethod
         val funType = funSym.returnType
-        val self =
-          qual match {
-            case Super(q, mix) =>
-              parseExpr(q)
-          }
+        val self = parseExpr(qual)
         (self, funSym, funType)
     }
   }

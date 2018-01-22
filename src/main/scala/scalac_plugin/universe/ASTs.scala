@@ -35,6 +35,8 @@ trait ASTs { self: ForeignTypes =>
       sym: ValSym,
       tpe: TypeSym,
       value: Value) extends Expr
+    case class Super(tpe: TypeSym, value: Value) extends Expr
+    case class Select(tpe: TypeSym, value: Value, target: Expr, sym: FunSym) extends Expr
     sealed abstract class Literal extends Expr {
       val lit: Any
     }
