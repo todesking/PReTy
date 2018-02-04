@@ -13,59 +13,13 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
     global.reporter.error(pos, msg)
   }
 
-  private[this] var templates = Map.empty[FunSym, Template]
-  override def templateOf(f: FunSym): Template = {
-    templates.get(f).fold {
-      val t = freshTemplate(f)
-      this.templates = templates + (f -> t)
-      t
-    }(identity)
-  }
-
-  private[this] def freshTemplate(f: FunSym): Template = {
-    val srcs = refinementSrcFromFun(f)
-    val asts = srcs.flatMap(Lang.parse)
-    buildTemplate(f, asts)
-  }
-
-  private[this] def buildTemplate(f: FunSym, asts: Seq[Lang.AST.Pred]): Template = {
-    val self = Value.fresh("<this>")
-    val paramss = funParamNames(f).map { ns => ns.map { _ => Value.fresh() } }
-    val nameToValue = funParamNames(f).zip(paramss).flatMap {
-      case (ns, vs) =>
-        ns.zip(vs).map { case (n, v) => (n -> v) }
-    }.toMap
-    val ret = Value.fresh()
-    val (sp, pp, rp) = buildPreds(self, nameToValue, ret, asts)
-
-    Template(self, ret, paramss)
-  }
-
-  private[this] def buildPreds(
-    self: Value, nameToValue: Map[String, Value], ret: Value, asts: Seq[Lang.AST.Pred]): (Pred, Map[String, Pred], Pred) = {
-    // TODO: check acyclicity
-    val env = nameToValue ++ Map("this" -> self)
-    val compiled: Map[String, Pred] = asts
-      .map { a =>
-        a.id -> compilePred(env, a.expr)
-      }
-      .groupBy(_._1)
-      .toMap
-      .mapValues(_.map(_._2))
-      .mapValues(Pred.and)
-    return (
-      compiled.getOrElse("this", Pred.True),
-      compiled.filter { case (k, _) => k != "_" && k != "this" },
-      compiled.getOrElse("_", Pred.True))
-  }
-
-  private[this] def compilePred(env: Map[String, Value], expr: Lang.AST.Expr): Pred = ???
+  override def funName(f: FunSym) = f.name.toString
 
   // TODO: What means of "decoded"? I don't know
-  private[this] def funParamNames(f: FunSym): Seq[Seq[String]] =
+  override def funParamNames(f: FunSym): Seq[Seq[String]] =
     f.asMethod.paramLists.map { _.map { sym => sym.name.decoded } }
 
-  private[this] def refinementSrcFromFun(f: FunSym): Seq[String] =
+  override def refinementSrcFromFun(f: FunSym): Seq[String] =
     refinementSrc(f)
 
   private[this] val annotationTpe = global.rootMirror.getRequiredClass("com.todesking.prety.refine").tpe

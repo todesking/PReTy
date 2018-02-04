@@ -60,12 +60,50 @@ trait Universe extends AnyRef
       Seq()
   }
 
-  def templateOf(sym: FunSym): Template
+  private[this] var templates = Map.empty[FunSym, Template]
+  def templateOf(f: FunSym): Template = {
+    templates.get(f).fold {
+      val t = freshTemplate(f)
+      this.templates = templates + (f -> t)
+      t
+    }(identity)
+  }
+
+  private[this] def freshTemplate(f: FunSym): Template = {
+    val srcs = refinementSrcFromFun(f)
+    val asts = srcs.flatMap(Lang.parse)
+    buildTemplate(f, asts)
+  }
+
+  private[this] def buildTemplate(f: FunSym, preds: Seq[(String, Lang.AST)]): Template = {
+    val fname = funName(f)
+    val self = Value.fresh(s"$fname/<this>")
+    val paramss = funParamNames(f).map { ns => ns.map { name => Value.fresh(s"$fname/param:$name") } }
+    val ret = Value.fresh(s"$fname/return")
+
+    val env = funParamNames(f).zip(paramss).flatMap {
+      case (ns, vs) =>
+        ns.zip(vs)
+    }.toMap ++ Map("this" -> self, "_" -> ret)
+
+    val bindings = preds
+      .groupBy(_._1)
+      .toMap
+      .mapValues(_.map(_._2))
+      .mapValues { asts =>
+        Pred.and(asts.map(Pred.Expr(_, env)))
+      }.map {
+        case (k, v) =>
+          env(k) -> v
+      }
+    Template(self, ret, paramss, bindings)
+  }
 
   case class Template(
     self: Value,
     ret: Value,
-    argss: Seq[Seq[Value]]) {
+    argss: Seq[Seq[Value]],
+    bindings: Map[Value, Pred]) {
     // TODO: check acyclic
     def apply(
       aSelf: Value,
@@ -76,10 +114,11 @@ trait Universe extends AnyRef
       val argSub = Map(self -> aSelf) ++
         argss.flatten.zip(aArgss.flatten).map { case (p, a) => p -> a }
 
-      (aSelf *<:= self) +: argss.flatten.zip(aArgss.flatten).map {
-        case (p, a) =>
-          a *<:= p.substitute(argSub)
-      } :+ (aRet *<:= ret.substitute(argSub))
+      return (
+        (aSelf *<:= self) +: argss.flatten.zip(aArgss.flatten).map {
+          case (p, a) =>
+            a *<:= p.substitute(argSub)
+        } :+ (aRet *<:= ret.substitute(argSub))) ++ bindings.map { case (v, p) => v *=:= p }
     }
   }
 

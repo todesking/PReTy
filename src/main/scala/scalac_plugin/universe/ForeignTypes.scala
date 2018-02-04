@@ -6,4 +6,8 @@ trait ForeignTypes {
   type ValSym
   type FunSym
   type TypeSym
+
+  def refinementSrcFromFun(f: FunSym): Seq[String]
+  def funName(f: FunSym): String
+  def funParamNames(f: FunSym): Seq[Seq[String]]
 }

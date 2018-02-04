@@ -4,6 +4,7 @@ trait ASTs { self: ForeignTypes =>
   def toAST(t: Tree): Seq[AST.CTODef]
 
   case class Value(id: Int, name: String) {
+    def tpe: TypeSym = ???
     override def toString = s"$name#$id"
   }
   object Value {

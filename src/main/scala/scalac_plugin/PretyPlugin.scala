@@ -21,8 +21,5 @@ class Component(override val global: Global) extends PluginComponent {
       u.checkRefinements(unit.body)
 
     }
-    private[this] def pp(t: global.Tree): Unit = {
-      println(global.showRaw(t))
-    }
   }
 }
