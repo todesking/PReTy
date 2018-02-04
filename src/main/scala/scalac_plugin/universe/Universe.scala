@@ -16,13 +16,73 @@ trait Universe extends AnyRef
 
   def analyzeCTO(cto: AST.CTODef): Unit = {
     println(s"Analyzing: $cto")
-    val constraints = cto.impl.flatMap(gatherConstraints)
-    val initialBinding = cto.impl.flatMap(gatherPredBindings).toMap // TODO: Check dups
-    val binding = infer(constraints, initialBinding)
-    val conflicts = solve(constraints, binding)
+    val graph = Graph.merge(cto.impl.map(buildGraph))
+    val inferred = graph.infer()
+    println(inferred.constraints.mkString("\n"))
+    println(s"Initial:")
+    graph.binding.toSeq.sortBy(_._1.id)
+      .foreach {
+        case (v, p) =>
+          println(s"  $v = $p")
+      }
+    println(s"Inferred:")
+    (inferred.binding.keySet -- graph.binding.keySet).toSeq
+      .sortBy(_.id)
+      .foreach {
+        case v =>
+          println(s"  $v = ${inferred.binding(v)}")
+      }
+
+    val conflicts = solve(inferred.constraints, inferred.binding)
     conflicts.foreach { c =>
       reportError(c.pos, c.message)
     }
+  }
+
+  def buildGraph(t: AST.InImpl): Graph = t match {
+    case AST.CTODef(impl) => unk(t)
+    case AST.ValDef(sym, tpe, value, body) =>
+      // TODO: check val's annotation
+      // TODO: Use default binding if public
+      body.fold(Graph.empty) { b =>
+        Graph.constraint(b.value *<:= value) + buildGraph(b)
+      }
+    case AST.FunDef(sym, tpe, value, paramss, body) =>
+      // TODO: Use default binding if public
+      // TODO: gather bindings from definition
+      body.fold(Graph.empty) { b =>
+        Graph.constraint(b.value *<:= value) + buildGraph(b)
+      }
+    case AST.Block(tpe, value, stats, expr) =>
+      Graph.merge(stats.map(buildGraph))
+        .merge(buildGraph(expr))
+        .constraint(expr.value *<:= value)
+    case AST.This(tpe, value) =>
+      Graph.bind(value, Pred.True)
+    case AST.Apply(self, sym, tpe, value, argss) =>
+      val template = templateOf(sym)
+      // TODO: lookup value's binding from sym's template
+      buildGraph(self)
+        .merge(argss.flatten.map(buildGraph))
+        .constraint(template.apply(self.value, value, argss.map(_.map(_.value))))
+    case AST.ValRef(sym, tpe, value) =>
+      // TODO: add equality
+      Graph.empty
+    case AST.Super(tpe, value) =>
+      // TODO: we can do something here
+      Graph.empty
+    case AST.Select(tpe, value, target, sym) =>
+      // TODO: lookup bindings from template
+      buildGraph(target)
+        .constraint(target.value *<:= value)
+    case AST.IntLiteral(value, lit) =>
+      Graph.bind(
+        value,
+        Pred.Expr(
+          Lang.AST.Op(Lang.AST.TheValue, "==", Lang.AST.LitInt(lit)),
+          Map()))
+    case AST.UnitLiteral(value) =>
+      Graph.empty
   }
 
   def gatherPredBindings(t: AST.InImpl): Map[Value, Pred] = t match {
@@ -38,9 +98,9 @@ trait Universe extends AnyRef
     case AST.Block(tpe, value, stats, expr) =>
       stats.flatMap(gatherPredBindings).toMap ++ gatherPredBindings(expr)
     case AST.This(tpe, value) =>
-      // TODO: we can do something here
-      Map()
+      Map(value -> Pred.True)
     case AST.Apply(self, sym, tpe, value, argss) =>
+      val template = templateOf(sym)
       // TODO: lookup value's binding from sym's template
       gatherPredBindings(self) ++ argss.flatten.flatMap(gatherPredBindings)
     case AST.ValRef(sym, tpe, value) =>
@@ -170,18 +230,32 @@ trait Universe extends AnyRef
     initialValues: Map[Value, Pred]): Map[Value, Pred] = {
     println(constraints.mkString("\n"))
     val g = new Graph(constraints, initialValues)
-    val infered = g.infer()
+    val inferred = g.infer()
     println(s"Initially assigned: ${initialValues}")
-    println(s"Infered: ${g.binding}")
-    if (infered.unassignedValues.nonEmpty) {
+    println(s"inferred: ${g.binding}")
+    if (inferred.unassignedValues.nonEmpty) {
       throw new RuntimeException(
-        s"Infer failed: Unassigned=${infered.unassignedValues}")
+        s"Infer failed: Unassigned=${inferred.unassignedValues}")
     }
     g.binding
   }
 
-  class Graph(cs: Seq[Constraint], val binding: Map[Value, Pred]) {
-    lazy val allValues = cs.flatMap(_.values).toSet
+  class Graph(
+    val constraints: Seq[Constraint],
+    val binding: Map[Value, Pred]) {
+    def +(rhs: Graph) = new Graph(
+      constraints ++ rhs.constraints,
+      binding ++ rhs.binding)
+
+    def merge(rhs: Graph) = this + rhs
+    def merge(rhs: Seq[Graph]) = this + Graph.merge(rhs)
+
+    def constraint(c: Constraint) =
+      this + Graph.constraint(c)
+    def constraint(cs: Seq[Constraint]) =
+      this + Graph.constraint(cs)
+
+    lazy val allValues = constraints.flatMap(_.values).toSet
     lazy val assignedValues = binding.keySet
     lazy val unassignedValues = allValues -- assignedValues
 
@@ -189,7 +263,7 @@ trait Universe extends AnyRef
       incomingEdges(v).flatMap(_.values).exists(unassignedValues)
 
     def incomingEdges(v: Value): Set[Constraint] =
-      cs.filter { c => c.lhs.toValue.contains(v) }.toSet
+      constraints.filter { c => c.lhs.toValue.contains(v) }.toSet
 
     @scala.annotation.tailrec
     final def infer(): Graph = {
@@ -207,8 +281,20 @@ trait Universe extends AnyRef
             val p = Pred.and(incomingEdges(v).map(_.lhs).map(_.pred(b)).toSeq)
             b + (v -> p)
           }
-      new Graph(cs, newBinding)
+      new Graph(constraints, newBinding)
     }
+  }
+  object Graph {
+    val empty: Graph = new Graph(Seq(), Map())
+
+    def merge(gs: Seq[Graph]): Graph =
+      gs.foldLeft(empty) { (a, x) => a + x }
+    def constraint(c: Constraint): Graph =
+      new Graph(Seq(c), Map())
+    def constraint(cs: Seq[Constraint]): Graph =
+      new Graph(cs, Map())
+    def bind(v: Value, p: Pred): Graph =
+      new Graph(Seq(), Map(v -> p))
   }
   class Env {
     def isVisibleFrom(v: Value, from: Value): Boolean = ???

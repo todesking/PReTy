@@ -83,7 +83,7 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
         val (self, funSym, tpe) = parseFun(fun)
         AST.Apply(self, funSym, tpe, Value.fresh(t.toString), Seq(args.map(parseExpr)))
       case t @ This(qual) =>
-        AST.This(t.tpe, Value.fresh())
+        AST.This(t.tpe, Value.fresh(s"this"))
       case Literal(Constant(v)) =>
         v match {
           case i: Int => AST.IntLiteral(Value.fresh(s"lit:$i"), i)
