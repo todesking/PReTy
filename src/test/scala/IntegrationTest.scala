@@ -53,14 +53,17 @@ class IntegrationTest extends FunSpec {
     }
 
     val result = Compiler.compile(f.path)
-    assert(result.infos.isEmpty)
-    assert(result.warnings.isEmpty)
-    assert(result.errors.size == expectedErrors.size)
-    result.errors.sortBy(_.pos.point).zip(expectedErrors.sortBy(_._1)).foreach {
-      case (amsg, (epos, emsg)) =>
-        assert(amsg.pos.point == epos)
-        assert(amsg.message == emsg)
-    }
+    assert(result.infos == Seq())
+    assert(result.warnings == Seq())
+
+    val eErrors = expectedErrors.toSet
+    val errors = result.errors.map { e => e.pos.point -> e.message }.toSet
+
+    val nothappens = (eErrors -- errors).toSeq.sortBy(_._1)
+    val unexpecteds = (errors -- eErrors).toSeq.sortBy(_._1)
+
+    assert(nothappens == Seq(), "Errors not happen")
+    assert(unexpecteds == Seq(), "Unexpected errors")
   }
 }
 
