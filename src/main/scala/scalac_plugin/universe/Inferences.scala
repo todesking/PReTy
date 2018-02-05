@@ -6,9 +6,6 @@ trait Inferences { self: ASTs with Preds with Constraints =>
   implicit def valueToPredHolder(v: Value): PredHolder.Variable =
     PredHolder.Variable(v)
 
-  implicit def predToPredHolder(p: Pred): PredHolder.Ground =
-    PredHolder.Ground(p)
-
   implicit class ValueOps(self: Value) {
     def *<:=(rhs: PredHolder): Constraint = Constraint.FocusLeft(self, rhs)
   }

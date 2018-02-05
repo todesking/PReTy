@@ -21,14 +21,6 @@ trait Constraints { self: ASTs with Preds =>
       override def toValue = Some(value)
       override def toString = s"[${mapping.toSeq.map { case (k, v) => s"$k -> $v" }.mkString(", ")}]($value)"
     }
-
-    case class Ground(pred: Pred) extends PredHolder {
-      override def substitute(mapping: Map[Value, Value]) =
-        ???
-      override def pred(binding: Map[Value, Pred]) = pred
-      override def toValue = None
-      override def toString = pred.toString
-    }
   }
 
   // represents lhs <= rhs

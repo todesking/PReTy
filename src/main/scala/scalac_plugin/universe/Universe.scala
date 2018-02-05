@@ -94,7 +94,7 @@ trait Universe extends AnyRef
           Lang.AST.Op(Lang.AST.TheValue, "==", Lang.AST.LitInt(lit)),
           Map()))
     case AST.UnitLiteral(value) =>
-      Graph.empty
+      Graph.bind(value, Pred.True)
   }
 
   class ValueRepo {
@@ -112,7 +112,12 @@ trait Universe extends AnyRef
 
     def getOrRegisterReturn(fun: DefSym): Value =
       values.get(fun).getOrElse {
-        register(fun, s"${query.name(fun)}")
+        register(fun, s"${query.name(fun)}/return")
+      }
+
+    def getOrRegisterThis(fun: DefSym): Value =
+      values.get(fun).getOrElse {
+        register(fun, s"${query.name(fun)}/this")
       }
 
     def get(key: DefSym): Value =
@@ -140,8 +145,7 @@ trait Universe extends AnyRef
 
   private[this] def buildTemplate(f: DefSym, preds: Seq[(String, Lang.AST)]): Template = {
     // TODO: Check unknown pred target
-    val fname = query.name(f)
-    val self = Value.fresh(s"$fname/this")
+    val self = valueRepo.getOrRegisterThis(f)
     val paramss = query.paramss(f)
       .map { ps => ps.map { p => valueRepo.registerParam(f, p) } }
     // When f is local val, ret is already registered as param
@@ -223,7 +227,7 @@ trait Universe extends AnyRef
       incomingEdges(v).flatMap(_.values).exists(unassignedValues)
 
     def incomingEdges(v: Value): Set[Constraint] =
-      constraints.filter { c => c.lhs.toValue.contains(v) }.toSet
+      constraints.filter { c => c.rhs.toValue.contains(v) }.toSet
 
     @scala.annotation.tailrec
     final def infer(): Graph = {
@@ -256,6 +260,7 @@ trait Universe extends AnyRef
     def bind(v: Value, p: Pred): Graph =
       new Graph(Seq(), Map(v -> p))
   }
+
   class Env {
     def isVisibleFrom(v: Value, from: Value): Boolean = ???
   }
