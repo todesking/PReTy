@@ -48,9 +48,5 @@ trait Constraints { self: ASTs with Preds =>
     case class FocusRight(lhs: PredHolder, rhs: PredHolder.Variable) extends LE {
       override def toString = s"$lhs <=* $rhs"
     }
-    case class Bind(lhs: PredHolder.Variable, pred: Pred) extends Constraint {
-      override def rhs = PredHolder.Ground(pred)
-      override def toString = s"$lhs =:= $pred"
-    }
   }
 }

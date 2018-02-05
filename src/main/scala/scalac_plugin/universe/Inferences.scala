@@ -11,7 +11,6 @@ trait Inferences { self: ASTs with Preds with Constraints =>
 
   implicit class ValueOps(self: Value) {
     def *<:=(rhs: PredHolder): Constraint = Constraint.FocusLeft(self, rhs)
-    def *=:=(rhs: Pred): Constraint = Constraint.Bind(self, rhs)
   }
 
 }

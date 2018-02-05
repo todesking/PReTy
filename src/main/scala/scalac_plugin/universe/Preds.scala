@@ -32,7 +32,7 @@ trait Preds { self: ForeignTypes with ASTs =>
     def eval(env: PredEnv): Logic = ???
   }
   object Pred {
-    def and(ps: Seq[Pred]): Pred = And(ps)
+    def and(ps: Seq[Pred]): Pred = if (ps.isEmpty) True else And(ps)
     case object True extends Pred
     case object False extends Pred
     case class And(preds: Seq[Pred]) extends Pred

@@ -64,7 +64,7 @@ trait Universe extends AnyRef
       // TODO: lookup value's binding from sym's template
       buildGraph(self)
         .merge(argss.flatten.map(buildGraph))
-        .constraint(template.apply(self.value, value, argss.map(_.map(_.value))))
+        .merge(template.apply(self.value, value, argss.map(_.map(_.value))))
     case AST.ValRef(sym, tpe, value) =>
       // TODO: add equality
       Graph.empty
@@ -74,7 +74,6 @@ trait Universe extends AnyRef
     case AST.Select(tpe, value, target, sym) =>
       // TODO: lookup bindings from template
       buildGraph(target)
-        .constraint(target.value *<:= value)
     case AST.IntLiteral(value, lit) =>
       Graph.bind(
         value,
@@ -83,79 +82,6 @@ trait Universe extends AnyRef
           Map()))
     case AST.UnitLiteral(value) =>
       Graph.empty
-  }
-
-  def gatherPredBindings(t: AST.InImpl): Map[Value, Pred] = t match {
-    case AST.CTODef(impl) => unk(t)
-    case AST.ValDef(sym, tpe, value, body) =>
-      // TODO: check val's annotation
-      // TODO: Use default binding if public
-      body.map(gatherPredBindings).getOrElse(Map())
-    case AST.FunDef(sym, tpe, value, paramss, body) =>
-      // TODO: Use default binding if public
-      // TODO: gather bindings from definition
-      body.map(gatherPredBindings).getOrElse(Map())
-    case AST.Block(tpe, value, stats, expr) =>
-      stats.flatMap(gatherPredBindings).toMap ++ gatherPredBindings(expr)
-    case AST.This(tpe, value) =>
-      Map(value -> Pred.True)
-    case AST.Apply(self, sym, tpe, value, argss) =>
-      val template = templateOf(sym)
-      // TODO: lookup value's binding from sym's template
-      gatherPredBindings(self) ++ argss.flatten.flatMap(gatherPredBindings)
-    case AST.ValRef(sym, tpe, value) =>
-      // TODO: add equality
-      Map()
-    case AST.Super(tpe, value) =>
-      // TODO: we can do something here
-      Map()
-    case AST.Select(tpe, value, target, sym) =>
-      // TODO: lookup bindings from template
-      gatherPredBindings(target)
-    case AST.IntLiteral(value, lit) =>
-      Map(
-        value -> Pred.Expr(
-          Lang.AST.Op(Lang.AST.TheValue, "==", Lang.AST.LitInt(lit)),
-          Map()))
-    case AST.UnitLiteral(value) =>
-      Map()
-  }
-
-  def gatherConstraints(t: AST.InImpl): Seq[Constraint] = t match {
-    case AST.CTODef(impl) => unk(t)
-    case AST.ValDef(sym, tpe, value, body) =>
-      body.fold(Seq.empty[Constraint]) { b =>
-        Seq(b.value *<:= value) ++ exprConstraints(b)
-      }
-    case AST.FunDef(sym, tpe, value, paramss, body) =>
-      body.fold(Seq.empty[Constraint]) { b =>
-        Seq(b.value *<:= value) ++ exprConstraints(b)
-      }
-    case e: AST.Expr =>
-      exprConstraints(e)
-  }
-
-  def exprConstraints(e: AST.Expr): Seq[Constraint] = e match {
-    case AST.Block(tpe, value, stats, expr) =>
-      stats.flatMap(gatherConstraints) ++ exprConstraints(expr)
-    case AST.IntLiteral(value, lit) =>
-      Seq()
-    case AST.UnitLiteral(value) =>
-      Seq()
-    case AST.This(tpe, value) =>
-      Seq()
-    case AST.ValRef(sym, tye, value) =>
-      Seq()
-    case AST.Apply(self, sym, tpe, value, argss) =>
-      val selfCs = exprConstraints(self)
-      val argCs = argss.flatMap(_.flatMap(exprConstraints))
-      val applyCs = templateOf(sym)
-        .apply(self.value, value, argss.map(_.map(_.value)))
-      selfCs ++ argCs ++ applyCs
-    case AST.Super(tpe, value) =>
-      Seq()
-    case AST.Select(tpe, value, target, sym) =>
-      Seq()
   }
 
   private[this] var templates = Map.empty[FunSym, Template]
@@ -206,17 +132,20 @@ trait Universe extends AnyRef
     def apply(
       aSelf: Value,
       aRet: Value,
-      aArgss: Seq[Seq[Value]]): Seq[Constraint] = {
+      aArgss: Seq[Seq[Value]]): Graph = {
       require(argss.map(_.size) == aArgss.map(_.size))
 
       val argSub = Map(self -> aSelf) ++
         argss.flatten.zip(aArgss.flatten).map { case (p, a) => p -> a }
 
-      return (
-        (aSelf *<:= self) +: argss.flatten.zip(aArgss.flatten).map {
-          case (p, a) =>
-            a *<:= p.substitute(argSub)
-        } :+ (aRet *<:= ret.substitute(argSub))) ++ bindings.map { case (v, p) => v *=:= p }
+      Graph
+        .constraint(aSelf *<:= self)
+        .constraint(
+          argss.flatten.zip(aArgss.flatten).map {
+            case (p, a) =>
+              a *<:= p.substitute(argSub)
+          }).constraint(aRet *<:= ret.substitute(argSub))
+        .bind(bindings)
     }
   }
 
@@ -254,6 +183,9 @@ trait Universe extends AnyRef
       this + Graph.constraint(c)
     def constraint(cs: Seq[Constraint]) =
       this + Graph.constraint(cs)
+    // TODO: check conflict
+    def bind(vps: Map[Value, Pred]) =
+      new Graph(constraints, binding ++ vps)
 
     lazy val allValues = constraints.flatMap(_.values).toSet
     lazy val assignedValues = binding.keySet
