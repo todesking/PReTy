@@ -3,13 +3,16 @@ package com.todesking.prety.scalac_plugin.universe
 trait ForeignTypes {
   type Pos
   type Tree
-  type ValSym
-  type FunSym
+
+  // vals and defs
+  type DefSym
+
   type TypeSym
 
-  def refinementSrcFromFun(f: FunSym): Seq[String]
-  def funName(f: FunSym): String
-  def funParamNames(f: FunSym): Seq[Seq[String]]
-  def valName(v: ValSym): String
-  def funParamSymss(f: FunSym): Seq[Seq[ValSym]]
+  val query: QueryAPI
+  trait QueryAPI {
+    def name(f: DefSym): String
+    def paramss(f: DefSym): Seq[Seq[DefSym]]
+    def refinementSrc(f: DefSym): Seq[String]
+  }
 }

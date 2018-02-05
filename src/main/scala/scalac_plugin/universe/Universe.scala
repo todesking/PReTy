@@ -43,19 +43,18 @@ trait Universe extends AnyRef
     case AST.CTODef(impl) => unk(t)
     case AST.ValDef(sym, tpe, value, body) =>
       // TODO: Use default binding if public
-      // FIXME
-      val template = templateOf(sym.asInstanceOf[FunSym])
+      val template = templateOf(sym)
       body.fold(Graph.empty) { b =>
         Graph
           .constraint(b.value *<:= value)
           .merge(buildGraph(b))
           .constraint(b.value *<:= template.ret)
       }.bind(template.bindings)
-    case AST.FunDef(sym, tpe, value, paramss, body) =>
+    case AST.FunDef(sym, tpe, body) =>
       // TODO: Use default binding if public
       val template = templateOf(sym)
       body.fold(Graph.empty) { b =>
-        Graph.constraint(b.value *<:= value)
+        Graph.constraint(b.value *<:= template.ret)
           .merge(buildGraph(b))
       }.bind(template.bindings)
     case AST.Block(tpe, value, stats, expr) =>
@@ -91,8 +90,32 @@ trait Universe extends AnyRef
       Graph.empty
   }
 
-  private[this] var templates = Map.empty[FunSym, Template]
-  def templateOf(f: FunSym): Template = {
+  class ValueRepo {
+    private[this] var values = Map.empty[DefSym, Value]
+    private[this] def register(key: DefSym, name: String): Value = {
+      if (values.contains(key))
+        throw new RuntimeException(s"Value conflict: $key")
+      val v = Value.fresh(name)
+      values = values + (key -> v)
+      v
+    }
+
+    def registerParam(fun: DefSym, p: DefSym): Value =
+      register(p, s"${query.name(fun)}/(${query.name(p)})")
+
+    def registerReturn(fun: DefSym): Value =
+      register(fun, s"${query.name(fun)}/return")
+
+    def get(key: DefSym): Value =
+      values.get(key).getOrElse {
+        throw new RuntimeException(s"Undefined value: $key")
+      }
+  }
+
+  val valueRepo = new ValueRepo
+
+  private[this] var templates = Map.empty[DefSym, Template]
+  def templateOf(f: DefSym): Template = {
     templates.get(f).getOrElse {
       val t = freshTemplate(f)
       this.templates = templates + (f -> t)
@@ -100,30 +123,23 @@ trait Universe extends AnyRef
     }
   }
 
-  private[this] var valValues = Map.empty[ValSym, Value]
-  def valValueOf(v: ValSym, name: String): Value =
-    valValues.get(v).getOrElse {
-      val value = Value.fresh(name)
-      valValues = valValues + (v -> value)
-      value
-    }
-
-  private[this] def freshTemplate(f: FunSym): Template = {
-    val srcs = refinementSrcFromFun(f)
+  private[this] def freshTemplate(f: DefSym): Template = {
+    val srcs = query.refinementSrc(f)
     val asts = srcs.flatMap(Lang.parse)
     buildTemplate(f, asts)
   }
 
-  private[this] def buildTemplate(f: FunSym, preds: Seq[(String, Lang.AST)]): Template = {
-    val fname = funName(f)
+  private[this] def buildTemplate(f: DefSym, preds: Seq[(String, Lang.AST)]): Template = {
+    // TODO: Check unknown pred target
+    val fname = query.name(f)
     val self = Value.fresh(s"$fname/this")
-    val paramss = funParamNames(f).zip(funParamSymss(f))
-      .map { case (ns, ss) => ns.zip(ss).map { case (name, sym) => valValueOf(sym, s"$fname/($name)") } }
-    val ret = valValueOf(f.asInstanceOf[ValSym], s"$fname/return")
+    val paramss = query.paramss(f)
+      .map { ps => ps.map { p => valueRepo.registerParam(f, p) } }
+    val ret = valueRepo.registerReturn(f)
 
-    val env = funParamNames(f).zip(paramss).flatMap {
-      case (ns, vs) =>
-        ns.zip(vs)
+    val env = query.paramss(f).zip(paramss).flatMap {
+      case (ps, vs) =>
+        ps.zip(vs).map { case (p, v) => query.name(p) -> v }
     }.toMap ++ Map("this" -> self, "_" -> ret)
 
     val bindings = preds

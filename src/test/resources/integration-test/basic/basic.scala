@@ -24,6 +24,9 @@ object Basic {
   @refine("_: _ < 0")
   private[this] val negaValue0 = -1
 
+  // TODO: private[this] val posiValueInferred
+  // TODO: val posiValueNotInferred
+
   def bar(): Unit = {
     val p = 10
     val n = -1

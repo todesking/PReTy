@@ -28,16 +28,17 @@ trait ASTs { self: ForeignTypes =>
     case class This(tpe: TypeSym, value: Value) extends Expr
     case class Apply(
       self: Expr,
-      sym: FunSym,
+      sym: DefSym,
       tpe: TypeSym,
       value: Value,
       argss: Seq[Seq[Expr]]) extends Expr
+    // TODO: where is `self`?
     case class ValRef(
-      sym: ValSym,
+      sym: DefSym,
       tpe: TypeSym,
       value: Value) extends Expr
     case class Super(tpe: TypeSym, value: Value) extends Expr
-    case class Select(tpe: TypeSym, value: Value, target: Expr, sym: FunSym) extends Expr
+    case class Select(tpe: TypeSym, value: Value, target: Expr, sym: DefSym) extends Expr
     sealed abstract class Literal extends Expr {
       val lit: Any
     }
@@ -50,13 +51,11 @@ trait ASTs { self: ForeignTypes =>
     }
 
     case class FunDef(
-      sym: FunSym,
+      sym: DefSym,
       tpe: TypeSym,
-      value: Value, // TODO: need it??
-      paramss: Seq[Seq[ValDef]],
       body: Option[Expr]) extends Term
     case class ValDef(
-      sym: ValSym,
+      sym: DefSym,
       tpe: TypeSym,
       value: Value,
       body: Option[Expr]) extends Term

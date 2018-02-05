@@ -5,43 +5,31 @@ import scala.tools.nsc.{ Global }
 class ScalacUniverse[G <: Global](val global: G) extends Universe {
   override type Tree = global.Tree
   override type Pos = global.Position
-  override type FunSym = global.Symbol
-  override type ValSym = global.Symbol
+
+  override type DefSym = global.TermSymbol
+
   override type TypeSym = global.Type
 
   override def reportError(pos: Pos, msg: String): Unit = {
     global.reporter.error(pos, msg)
   }
 
-  override def funName(f: FunSym) = f.name.toString
-  override def valName(v: ValSym) = v.name.toString
-
-  // TODO: What means of "decoded"? I don't know
-  override def funParamNames(f: FunSym): Seq[Seq[String]] =
-    if (f.isMethod) f.asMethod.paramLists.map { _.map { sym => sym.name.decoded } }
-    else Seq() // FIXME: Dirty hack: need rethink symbol type hierarchy
-
-  override def funParamSymss(f: FunSym): Seq[Seq[ValSym]] =
-    if (f.isMethod) f.asMethod.paramLists
-    else Seq()
-
-  override def refinementSrcFromFun(f: FunSym): Seq[String] =
-    refinementSrc(f)
-
-  private[this] val annotationTpe = global.rootMirror.getRequiredClass("com.todesking.prety.refine").tpe
-  private[this] def refinementSrc(sym: global.Symbol): Seq[String] = sym match {
-    case s: global.TermSymbol =>
+  override val query = new QueryAPI {
+    override def name(f: DefSym) = f.name.toString
+    override def paramss(f: DefSym): Seq[Seq[DefSym]] = f.paramLists.map(_.map(_.asTerm))
+    override def refinementSrc(f: DefSym) = {
       import global._
-      s.annotations.collect {
+      f.annotations.collect {
         case global.Annotation(tpe, sargs, jargs) if tpe <:< annotationTpe =>
           if (sargs.size != 1) throw new AssertionError(s"Expected exact 1 arguments: $sargs")
           sargs(0) match {
             case Literal(Constant(src: String)) => src
           }
       }
-    case unk =>
-      throw new RuntimeException(s"Unsupported symbol: $sym(${sym.getClass.getName})")
+    }
   }
+
+  private[this] val annotationTpe = global.rootMirror.getRequiredClass("com.todesking.prety.refine").tpe
 
   override def toAST(t: Tree): Seq[AST.CTODef] =
     TreeParser.parseTop(t)
@@ -63,13 +51,10 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
         Seq()
       case dd @ DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
         val sym = dd.symbol.asMethod
-        val template = templateOf(dd.symbol)
         Seq(
           AST.FunDef(
             sym,
             sym.returnType,
-            template.ret,
-            vparamss.map(_.map { t => parseValDef(t, s"${funName(sym)}/(${t.symbol.name})") }),
             if (rhs.isEmpty) None else Some(parseExpr(rhs))))
       case vd @ ValDef(mods, name, tpt, rhs) =>
         Seq(parseValDef(vd, s"val:${vd.symbol.name}"))
@@ -79,7 +64,9 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
 
     def parseValDef(t: Tree, vName: String): AST.ValDef = t match {
       case vd @ ValDef(mods, name, tpt, rhs) =>
-        AST.ValDef(vd.symbol, tpt.symbol.selfType, valValueOf(vd.symbol, vName), if (rhs.isEmpty) None else Some(parseExpr(rhs)))
+        val sym = vd.symbol.asTerm
+        val template = templateOf(sym)
+        AST.ValDef(sym, sym.selfType, template.ret, if (rhs.isEmpty) None else Some(parseExpr(rhs)))
       case unk => unknown("ValDef", unk)
     }
 
@@ -98,15 +85,16 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
         }
       case sel @ Select(qual, name) =>
         val target = parseExpr(qual)
-        AST.Select(sel.tpe, Value.fresh(s"sel:$name"), target, sel.symbol)
+        val sym = sel.symbol.asTerm
+        AST.Select(sel.tpe, Value.fresh(sel.toString), target, sym)
       case s @ Super(qual, mix) =>
         AST.Super(s.tpe, Value.fresh(s.toString))
       case i @ Ident(name) =>
-        AST.ValRef(i.symbol, i.tpe, Value.fresh(s"ref:$name"))
+        AST.ValRef(i.symbol.asTerm, i.tpe, Value.fresh(s"ref:$name"))
       case unk => unknown("Expr", unk)
     }
 
-    def parseFun(fun: Tree): (AST.Expr, FunSym, TypeSym) = fun match {
+    private[this] def parseFun(fun: Tree): (AST.Expr, DefSym, TypeSym) = fun match {
       case sel @ Select(qual, name) =>
         val funSym = sel.symbol.asMethod
         val funType = funSym.returnType
