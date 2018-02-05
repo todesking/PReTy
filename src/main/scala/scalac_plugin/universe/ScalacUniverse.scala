@@ -14,11 +14,16 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
   }
 
   override def funName(f: FunSym) = f.name.toString
+  override def valName(v: ValSym) = v.name.toString
 
   // TODO: What means of "decoded"? I don't know
   override def funParamNames(f: FunSym): Seq[Seq[String]] =
     if (f.isMethod) f.asMethod.paramLists.map { _.map { sym => sym.name.decoded } }
     else Seq() // FIXME: Dirty hack: need rethink symbol type hierarchy
+
+  override def funParamSymss(f: FunSym): Seq[Seq[ValSym]] =
+    if (f.isMethod) f.asMethod.paramLists
+    else Seq()
 
   override def refinementSrcFromFun(f: FunSym): Seq[String] =
     refinementSrc(f)
@@ -58,22 +63,23 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
         Seq()
       case dd @ DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
         val sym = dd.symbol.asMethod
+        val template = templateOf(dd.symbol)
         Seq(
           AST.FunDef(
             sym,
             sym.returnType,
-            Value.fresh(s"fun:$name"),
-            vparamss.map(_.map(parseValDef)),
+            template.ret,
+            vparamss.map(_.map { t => parseValDef(t, s"${funName(sym)}/(${t.symbol.name})") }),
             if (rhs.isEmpty) None else Some(parseExpr(rhs))))
       case vd @ ValDef(mods, name, tpt, rhs) =>
-        Seq(parseValDef(vd))
+        Seq(parseValDef(vd, s"val:${vd.symbol.name}"))
       case other =>
         Seq(parseExpr(other))
     }
 
-    def parseValDef(t: Tree): AST.ValDef = t match {
+    def parseValDef(t: Tree, vName: String): AST.ValDef = t match {
       case vd @ ValDef(mods, name, tpt, rhs) =>
-        AST.ValDef(vd.symbol, tpt.symbol.selfType, Value.fresh(s"val:$name"), if (rhs.isEmpty) None else Some(parseExpr(rhs)))
+        AST.ValDef(vd.symbol, tpt.symbol.selfType, valValueOf(vd.symbol, vName), if (rhs.isEmpty) None else Some(parseExpr(rhs)))
       case unk => unknown("ValDef", unk)
     }
 

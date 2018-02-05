@@ -53,10 +53,11 @@ trait Universe extends AnyRef
       }.bind(template.bindings)
     case AST.FunDef(sym, tpe, value, paramss, body) =>
       // TODO: Use default binding if public
-      // TODO: gather bindings from definition
+      val template = templateOf(sym)
       body.fold(Graph.empty) { b =>
-        Graph.constraint(b.value *<:= value) + buildGraph(b)
-      }
+        Graph.constraint(b.value *<:= value)
+          .merge(buildGraph(b))
+      }.bind(template.bindings)
     case AST.Block(tpe, value, stats, expr) =>
       Graph.merge(stats.map(buildGraph))
         .merge(buildGraph(expr))
@@ -92,12 +93,20 @@ trait Universe extends AnyRef
 
   private[this] var templates = Map.empty[FunSym, Template]
   def templateOf(f: FunSym): Template = {
-    templates.get(f).fold {
+    templates.get(f).getOrElse {
       val t = freshTemplate(f)
       this.templates = templates + (f -> t)
       t
-    }(identity)
+    }
   }
+
+  private[this] var valValues = Map.empty[ValSym, Value]
+  def valValueOf(v: ValSym, name: String): Value =
+    valValues.get(v).getOrElse {
+      val value = Value.fresh(name)
+      valValues = valValues + (v -> value)
+      value
+    }
 
   private[this] def freshTemplate(f: FunSym): Template = {
     val srcs = refinementSrcFromFun(f)
@@ -107,9 +116,10 @@ trait Universe extends AnyRef
 
   private[this] def buildTemplate(f: FunSym, preds: Seq[(String, Lang.AST)]): Template = {
     val fname = funName(f)
-    val self = Value.fresh(s"$fname/<this>")
-    val paramss = funParamNames(f).map { ns => ns.map { name => Value.fresh(s"$fname/param:$name") } }
-    val ret = Value.fresh(s"$fname/return")
+    val self = Value.fresh(s"$fname/this")
+    val paramss = funParamNames(f).zip(funParamSymss(f))
+      .map { case (ns, ss) => ns.zip(ss).map { case (name, sym) => valValueOf(sym, s"$fname/($name)") } }
+    val ret = valValueOf(f.asInstanceOf[ValSym], s"$fname/return")
 
     val env = funParamNames(f).zip(paramss).flatMap {
       case (ns, vs) =>

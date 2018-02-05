@@ -10,4 +10,6 @@ trait ForeignTypes {
   def refinementSrcFromFun(f: FunSym): Seq[String]
   def funName(f: FunSym): String
   def funParamNames(f: FunSym): Seq[Seq[String]]
+  def valName(v: ValSym): String
+  def funParamSymss(f: FunSym): Seq[Seq[ValSym]]
 }
