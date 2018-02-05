@@ -19,3 +19,6 @@ scalacOptions ++= Seq(
 )
 scalacOptions in (Compile, console) ~= {_.filterNot(_ == "-Ywarn-unused-import")}
 scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value
+
+testOptions in Test += Tests.Argument("-oDF")
+

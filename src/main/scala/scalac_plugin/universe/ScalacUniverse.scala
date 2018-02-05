@@ -51,23 +51,20 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
         Seq()
       case dd @ DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
         val sym = dd.symbol.asMethod
+        templateOf(sym)
+        // TODO: remove values from def/ref AST: Symbols is enough
+        // TODO: Handle default args
         Seq(
           AST.FunDef(
             sym,
             sym.returnType,
             if (rhs.isEmpty) None else Some(parseExpr(rhs))))
       case vd @ ValDef(mods, name, tpt, rhs) =>
-        Seq(parseValDef(vd, s"val:${vd.symbol.name}"))
-      case other =>
-        Seq(parseExpr(other))
-    }
-
-    def parseValDef(t: Tree, vName: String): AST.ValDef = t match {
-      case vd @ ValDef(mods, name, tpt, rhs) =>
         val sym = vd.symbol.asTerm
         val template = templateOf(sym)
-        AST.ValDef(sym, sym.selfType, template.ret, if (rhs.isEmpty) None else Some(parseExpr(rhs)))
-      case unk => unknown("ValDef", unk)
+        Seq(AST.ValDef(sym, sym.selfType, template.ret, if (rhs.isEmpty) None else Some(parseExpr(rhs))))
+      case other =>
+        Seq(parseExpr(other))
     }
 
     def parseExpr(t: Tree): AST.Expr = t match {
@@ -90,7 +87,8 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
       case s @ Super(qual, mix) =>
         AST.Super(s.tpe, Value.fresh(s.toString))
       case i @ Ident(name) =>
-        AST.ValRef(i.symbol.asTerm, i.tpe, Value.fresh(s"ref:$name"))
+        val template = templateOf(i.symbol.asTerm)
+        AST.ValRef(i.symbol.asTerm, i.tpe, template.ret)
       case unk => unknown("Expr", unk)
     }
 

@@ -103,8 +103,10 @@ trait Universe extends AnyRef
     def registerParam(fun: DefSym, p: DefSym): Value =
       register(p, s"${query.name(fun)}/(${query.name(p)})")
 
-    def registerReturn(fun: DefSym): Value =
-      register(fun, s"${query.name(fun)}/return")
+    def getOrRegisterReturn(fun: DefSym): Value =
+      values.get(fun).getOrElse {
+        register(fun, s"${query.name(fun)}")
+      }
 
     def get(key: DefSym): Value =
       values.get(key).getOrElse {
@@ -135,7 +137,8 @@ trait Universe extends AnyRef
     val self = Value.fresh(s"$fname/this")
     val paramss = query.paramss(f)
       .map { ps => ps.map { p => valueRepo.registerParam(f, p) } }
-    val ret = valueRepo.registerReturn(f)
+    // When f is local val, ret is already registered as param
+    val ret = valueRepo.getOrRegisterReturn(f)
 
     val env = query.paramss(f).zip(paramss).flatMap {
       case (ps, vs) =>
