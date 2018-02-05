@@ -42,11 +42,15 @@ trait Universe extends AnyRef
   def buildGraph(t: AST.InImpl): Graph = t match {
     case AST.CTODef(impl) => unk(t)
     case AST.ValDef(sym, tpe, value, body) =>
-      // TODO: check val's annotation
       // TODO: Use default binding if public
+      // FIXME
+      val template = templateOf(sym.asInstanceOf[FunSym])
       body.fold(Graph.empty) { b =>
-        Graph.constraint(b.value *<:= value) + buildGraph(b)
-      }
+        Graph
+          .constraint(b.value *<:= value)
+          .merge(buildGraph(b))
+          .constraint(b.value *<:= template.ret)
+      }.bind(template.bindings)
     case AST.FunDef(sym, tpe, value, paramss, body) =>
       // TODO: Use default binding if public
       // TODO: gather bindings from definition
@@ -73,7 +77,9 @@ trait Universe extends AnyRef
       Graph.empty
     case AST.Select(tpe, value, target, sym) =>
       // TODO: lookup bindings from template
+      val template = templateOf(sym)
       buildGraph(target)
+        .merge(template.apply(target.value, value, Seq()))
     case AST.IntLiteral(value, lit) =>
       Graph.bind(
         value,
@@ -153,20 +159,6 @@ trait Universe extends AnyRef
 
   def solve(cs: Seq[Constraint], binding: Map[Value, Pred]): Seq[Conflict] = {
     Seq()
-  }
-  def infer(
-    constraints: Seq[Constraint],
-    initialValues: Map[Value, Pred]): Map[Value, Pred] = {
-    println(constraints.mkString("\n"))
-    val g = new Graph(constraints, initialValues)
-    val inferred = g.infer()
-    println(s"Initially assigned: ${initialValues}")
-    println(s"inferred: ${g.binding}")
-    if (inferred.unassignedValues.nonEmpty) {
-      throw new RuntimeException(
-        s"Infer failed: Unassigned=${inferred.unassignedValues}")
-    }
-    g.binding
   }
 
   class Graph(

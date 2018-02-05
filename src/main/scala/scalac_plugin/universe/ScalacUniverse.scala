@@ -17,7 +17,8 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
 
   // TODO: What means of "decoded"? I don't know
   override def funParamNames(f: FunSym): Seq[Seq[String]] =
-    f.asMethod.paramLists.map { _.map { sym => sym.name.decoded } }
+    if (f.isMethod) f.asMethod.paramLists.map { _.map { sym => sym.name.decoded } }
+    else Seq() // FIXME: Dirty hack: need rethink symbol type hierarchy
 
   override def refinementSrcFromFun(f: FunSym): Seq[String] =
     refinementSrc(f)

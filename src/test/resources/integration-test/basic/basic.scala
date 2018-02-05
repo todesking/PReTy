@@ -11,7 +11,7 @@ object Basic {
 
   @refine("_: _ > 0")
   def getPosiValue0 = 10
-  @refine("_ < 0")
+  @refine("_: _ < 0")
   def getNegaValue0 = -10
 
   @refine("_: _ > 0")
