@@ -32,6 +32,13 @@ trait Universe extends AnyRef
         case v =>
           println(s"  $v = ${inferred.binding(v)}")
       }
+    println("Unbound:")
+    (inferred.allValues -- inferred.binding.keySet).toSeq
+      .sortBy(_.id)
+      .foreach {
+        case v =>
+          println(s"  $v")
+      }
 
     val conflicts = solve(inferred.constraints, inferred.binding)
     conflicts.foreach { c =>
