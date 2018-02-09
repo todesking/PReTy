@@ -64,7 +64,7 @@ trait ASTs { self: ForeignTypes =>
     }
     case class Block(tpe: TypeSym, value: Value, statements: Seq[InImpl], expr: Expr) extends Expr {
       override def pretty = PP(
-        "Block",
+        s"Block $value",
         PP.indent(statements.map(_.pretty) :+ expr.pretty))
     }
     case class This(tpe: TypeSym, value: Value) extends Expr {
@@ -77,7 +77,7 @@ trait ASTs { self: ForeignTypes =>
       value: Value,
       argss: Seq[Seq[Expr]]) extends Expr {
       override def pretty = PP(
-        s"Apply($sym)",
+        s"Apply($sym) $value",
         PP.indent(self.pretty),
         PP.indent(argss.flatten.map(_.pretty)))
     }
@@ -89,11 +89,11 @@ trait ASTs { self: ForeignTypes =>
       override def pretty = s"ValRef($sym)"
     }
     case class Super(tpe: TypeSym, value: Value) extends Expr {
-      override def pretty = s"Super"
+      override def pretty = s"Super $value"
     }
     sealed abstract class Literal extends Expr {
       val lit: Any
-      override def pretty = s"Lit($lit)"
+      override def pretty = s"Lit($lit) $value"
     }
     case class IntLiteral(value: Value, lit: Int) extends Literal {
       override def tpe = ???
