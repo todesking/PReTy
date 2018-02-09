@@ -76,6 +76,7 @@ trait Universe extends AnyRef
       Graph.bind(value, Pred.True)
 
     case AST.Apply(self, sym, tpe, value, argss) =>
+      // TODO: register template.binding (or make global binding repo) for foreign members
       val template = templateOf(sym)
       println(template)
       buildGraph(self)
