@@ -91,11 +91,6 @@ trait ASTs { self: ForeignTypes =>
     case class Super(tpe: TypeSym, value: Value) extends Expr {
       override def pretty = s"Super"
     }
-    case class Select(tpe: TypeSym, value: Value, target: Expr, sym: DefSym) extends Expr {
-      override def pretty = PP(
-        s"Select($sym)",
-        target.pretty.indent)
-    }
     sealed abstract class Literal extends Expr {
       val lit: Any
       override def pretty = s"Lit($lit)"

@@ -83,7 +83,7 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
       case sel @ Select(qual, name) =>
         val target = parseExpr(qual)
         val sym = sel.symbol.asTerm
-        AST.Select(sel.tpe, Value.fresh(sel.toString), target, sym)
+        AST.Apply(target, sym, sel.tpe, Value.fresh(sel.toString), Seq())
       case s @ Super(qual, mix) =>
         AST.Super(s.tpe, Value.fresh(s.toString))
       case i @ Ident(name) =>

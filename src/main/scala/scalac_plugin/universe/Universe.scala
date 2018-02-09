@@ -82,11 +82,6 @@ trait Universe extends AnyRef
     case AST.Super(tpe, value) =>
       // TODO: we can do something here
       Graph.empty
-    case AST.Select(tpe, value, target, sym) =>
-      // TODO: lookup bindings from template
-      val template = templateOf(sym)
-      buildGraph(target)
-        .merge(template.apply(target.value, value, Seq()))
     case AST.IntLiteral(value, lit) =>
       Graph.bind(
         value,
