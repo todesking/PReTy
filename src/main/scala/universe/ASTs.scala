@@ -1,11 +1,9 @@
-package com.todesking.prety.scalac_plugin.universe
+package com.todesking.prety.universe
 
 import com.todesking.prety.Value
 import com.todesking.prety.util.PP
 
 trait ASTs { self: ForeignTypes =>
-  def toAST(t: Tree): Seq[AST.CTODef]
-
   sealed abstract class AST {
     def pretty: PP
   }

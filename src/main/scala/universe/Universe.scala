@@ -1,14 +1,26 @@
-package com.todesking.prety.scalac_plugin.universe
+package com.todesking.prety.universe
 
-import com.todesking.prety.Template
-
-import com.todesking.prety.{ Pred, Graph, Solver, Lang, Value }
+import com.todesking.prety.{ Template, Pred, Graph, Solver, Lang, Value }
 
 trait Universe extends AnyRef
   with ForeignTypes
   with ASTs {
   private[this] def unk(t: AST): Nothing =
     throw new RuntimeException(s"Unknown AST: $t")
+
+  def toAST(t: Tree): Seq[AST.CTODef]
+
+  val query: QueryAPI
+  trait QueryAPI {
+    def name(f: DefSym): String
+    def paramss(f: DefSym): Seq[Seq[DefSym]]
+    def refinementSrc(f: DefSym): Seq[String]
+  }
+
+  def emptyPos: Pos
+
+  def pos(v: Value): Pos =
+    valueRepo.getPos(v) getOrElse emptyPos
 
   def checkRefinements(root: Tree): Unit = {
     val ctos = toAST(root)
@@ -117,7 +129,7 @@ trait Universe extends AnyRef
       v
     }
 
-    def posOf(v: Value): Option[Pos] =
+    def getPos(v: Value): Option[Pos] =
       positions.get(v)
 
     def fresh(name: String): Value = {

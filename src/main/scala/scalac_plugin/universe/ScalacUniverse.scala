@@ -1,6 +1,8 @@
 package com.todesking.prety.scalac_plugin.universe
 
-import scala.tools.nsc.{ Global }
+import scala.tools.nsc.Global
+
+import com.todesking.prety.universe.Universe
 
 class ScalacUniverse[G <: Global](val global: G) extends Universe {
   override type Tree = global.Tree
