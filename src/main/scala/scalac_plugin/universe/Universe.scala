@@ -48,6 +48,7 @@ trait Universe extends AnyRef
 
   def buildGraph(t: AST.InImpl): Graph = t match {
     case AST.CTODef(impl) => unk(t)
+
     case AST.ValDef(sym, tpe, value, body) =>
       // TODO: Use default binding if public
       val template = templateOf(sym)
@@ -57,6 +58,7 @@ trait Universe extends AnyRef
           .merge(buildGraph(b))
           .constraint(b.value *<:= template.ret)
       }.bind(template.bindings)
+
     case AST.FunDef(sym, tpe, body) =>
       // TODO: Use default binding if public
       val template = templateOf(sym)
@@ -64,30 +66,37 @@ trait Universe extends AnyRef
         Graph.constraint(b.value *<:= template.ret)
           .merge(buildGraph(b))
       }.bind(template.bindings)
+
     case AST.Block(tpe, value, stats, expr) =>
       Graph.merge(stats.map(buildGraph))
         .merge(buildGraph(expr))
         .constraint(expr.value *<:= value)
+
     case AST.This(tpe, value) =>
       Graph.bind(value, Pred.True)
+
     case AST.Apply(self, sym, tpe, value, argss) =>
       val template = templateOf(sym)
       // TODO: lookup value's binding from sym's template
       buildGraph(self)
         .merge(argss.flatten.map(buildGraph))
         .merge(template.apply(self.value, value, argss.map(_.map(_.value))))
+
     case AST.ValRef(sym, tpe, value) =>
       // TODO: add equality
       Graph.empty
+
     case AST.Super(tpe, value) =>
       // TODO: we can do something here
       Graph.empty
+
     case AST.IntLiteral(value, lit) =>
       Graph.bind(
         value,
         Pred.Expr(
           Lang.AST.Op(Lang.AST.TheValue, "==", Lang.AST.LitInt(lit)),
           Map()))
+
     case AST.UnitLiteral(value) =>
       Graph.bind(value, Pred.True)
   }
@@ -186,7 +195,6 @@ trait Universe extends AnyRef
             case (p, a) =>
               a *<:= p.substitute(argSub)
           }).constraint(aRet *<:= ret.substitute(argSub))
-        .bind(bindings)
     }
   }
 
@@ -199,9 +207,15 @@ trait Universe extends AnyRef
   class Graph(
     val constraints: Seq[Constraint],
     val binding: Map[Value, Pred]) {
-    def +(rhs: Graph) = new Graph(
-      constraints ++ rhs.constraints,
-      binding ++ rhs.binding)
+    def +(rhs: Graph) = {
+      val conflicts = this.binding.keySet intersect rhs.binding.keySet
+      if (conflicts.nonEmpty) {
+        throw new RuntimeException(s"Binding conflict: ${conflicts.mkString(", ")}")
+      }
+      new Graph(
+        constraints ++ rhs.constraints,
+        binding ++ rhs.binding)
+    }
 
     def merge(rhs: Graph) = this + rhs
     def merge(rhs: Seq[Graph]) = this + Graph.merge(rhs)
@@ -210,9 +224,8 @@ trait Universe extends AnyRef
       this + Graph.constraint(c)
     def constraint(cs: Seq[Constraint]) =
       this + Graph.constraint(cs)
-    // TODO: check conflict
     def bind(vps: Map[Value, Pred]) =
-      new Graph(constraints, binding ++ vps)
+      this + Graph.bind(vps)
 
     lazy val allValues = constraints.flatMap(_.values).toSet
     lazy val assignedValues = binding.keySet
@@ -254,6 +267,8 @@ trait Universe extends AnyRef
       new Graph(cs, Map())
     def bind(v: Value, p: Pred): Graph =
       new Graph(Seq(), Map(v -> p))
+    def bind(vps: Map[Value, Pred]): Graph =
+      new Graph(Seq(), vps)
   }
 
   class Env {
