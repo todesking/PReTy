@@ -57,7 +57,7 @@ class IntegrationTest extends FunSpec {
     assert(result.warnings == Seq())
 
     val eErrors = expectedErrors.toSet
-    val errors = result.errors.map { e => e.pos.point -> e.message }.toSet
+    val errors = result.errors.map { e => (if (e.pos.isDefined) e.pos.point else -1) -> e.message }.toSet
 
     val nothappens = (eErrors -- errors).toSeq.sortBy(_._1)
     val unexpecteds = (errors -- eErrors).toSeq.sortBy(_._1)

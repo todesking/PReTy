@@ -9,17 +9,19 @@ trait Constraints { self: ASTs with Preds =>
   object PredHolder {
     case class Variable(value: Value) extends PredHolder {
       override def substitute(mapping: Map[Value, Value]) =
-        Substitute(mapping, value)
+        Substitute(mapping, this)
       override def pred(binding: Map[Value, Pred]) = binding(value)
       override def toValue = Some(value)
       override def toString = s"?($value)"
     }
 
-    case class Substitute(mapping: Map[Value, Value], value: Value) extends PredHolder {
+    case class Substitute(mapping: Map[Value, Value], original: PredHolder) extends PredHolder {
+      // TODO: Really need it?
       override def substitute(m: Map[Value, Value]) = ???
-      override def pred(binding: Map[Value, Pred]) = ???
-      override def toValue = Some(value)
-      override def toString = s"[${mapping.toSeq.map { case (k, v) => s"$k -> $v" }.mkString(", ")}]($value)"
+      override def pred(binding: Map[Value, Pred]) =
+        original.pred(binding).substitute(mapping)
+      override def toValue = original.toValue
+      override def toString = s"[${mapping.toSeq.map { case (k, v) => s"$k -> $v" }.mkString(", ")}](${original.toValue.get})"
     }
   }
 

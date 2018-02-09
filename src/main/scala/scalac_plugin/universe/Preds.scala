@@ -30,16 +30,34 @@ trait Preds { self: ForeignTypes with ASTs =>
 
   sealed abstract class Pred {
     def eval(env: PredEnv): Logic = ???
+    def substitute(mapping: Map[Value, Value]): Pred
   }
   object Pred {
     def and(ps: Seq[Pred]): Pred =
       if (ps.isEmpty) True
       else if (ps.size == 1) ps.head
       else And(ps)
-    case object True extends Pred
-    case object False extends Pred
-    case class And(preds: Seq[Pred]) extends Pred
-    case class Expr(expr: Lang.AST, env: Map[String, Value]) extends Pred
+    case object True extends Pred {
+      override def substitute(mapping: Map[Value, Value]) = this
+    }
+    case object False extends Pred {
+      override def substitute(mapping: Map[Value, Value]) = this
+    }
+    case class And(preds: Seq[Pred]) extends Pred {
+      override def substitute(mapping: Map[Value, Value]) =
+        And(preds.map(_.substitute(mapping)))
+      override def toString = preds.mkString(" && ")
+    }
+
+    case class Expr(expr: Lang.AST, env: Map[String, Value]) extends Pred {
+      override def substitute(mapping: Map[Value, Value]) =
+        Expr(
+          expr,
+          env.mapValues { v =>
+            mapping.get(v) getOrElse v
+          })
+      override def toString = s"{$expr}[${env.map { case (k, v) => s"$k -> $v" }.mkString(", ")}]"
+    }
   }
 
   abstract class PredType {
@@ -131,16 +149,16 @@ trait Preds { self: ForeignTypes with ASTs =>
       def int = "[0-9]|[1-9][0-9]*".r ^^ { v => AST.LitInt(v.toInt) }
     }
 
-    sealed abstract class AST
+    sealed abstract class AST(override val toString: String)
     object AST {
-      case object TheValue extends AST
-      case class Ident(name: String) extends AST
-      case class Select(value: AST, name: String) extends AST
+      case object TheValue extends AST("_")
+      case class Ident(name: String) extends AST(name)
+      case class Select(value: AST, name: String) extends AST(s"$value.$name")
 
-      sealed abstract class Lit extends AST
-      case class LitInt(value: Int) extends Lit
+      sealed abstract class Lit(s: String) extends AST(s)
+      case class LitInt(value: Int) extends Lit(value.toString)
 
-      case class Op(lhs: AST, op: String, rhs: AST) extends AST
+      case class Op(lhs: AST, op: String, rhs: AST) extends AST(s"$lhs $op $rhs")
     }
   }
 }

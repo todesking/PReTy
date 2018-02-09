@@ -1,13 +1,13 @@
 package com.todesking.prety.scalac_plugin.universe
 
 trait ForeignTypes {
-  type Pos
-  type Tree
+  type Pos >: Null <: AnyRef
+  type Tree >: Null <: AnyRef
 
   // vals and defs
-  type DefSym
+  type DefSym >: Null <: AnyRef
 
-  type TypeSym
+  type TypeSym >: Null <: AnyRef
 
   val query: QueryAPI
   trait QueryAPI {
@@ -15,4 +15,6 @@ trait ForeignTypes {
     def paramss(f: DefSym): Seq[Seq[DefSym]]
     def refinementSrc(f: DefSym): Seq[String]
   }
+
+  def emptyPos: Pos
 }

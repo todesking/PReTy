@@ -42,6 +42,7 @@ trait Universe extends AnyRef
 
     val conflicts = solve(inferred)
     conflicts.foreach { c =>
+      println(s"CONFLICT: ${c.pos}: ${c.message}")
       reportError(c.pos, c.message)
     }
   }
@@ -78,7 +79,6 @@ trait Universe extends AnyRef
     case AST.Apply(self, sym, tpe, value, argss) =>
       // TODO: register template.binding (or make global binding repo) for foreign members
       val template = templateOf(sym)
-      println(template)
       buildGraph(self)
         .merge(argss.flatten.map(buildGraph))
         .merge(template.apply(self.value, value, argss.map(_.map(_.value))))
@@ -202,7 +202,33 @@ trait Universe extends AnyRef
   }
 
   def solve(g: Graph): Seq[Conflict] = {
-    Seq()
+    val (nonTrivial, trivialConflicts) = Solve.solveTrivial(g.groundConstraints)
+    trivialConflicts ++ nonTrivial.map { c =>
+      Conflict(emptyPos, s"Constraint is not trivial and can't solve: ${c.lhs} <= ${c.rhs}")
+    }
+  }
+  object Solve {
+    def solveTrivial(cs: Seq[GroundConstraint]): (Seq[GroundConstraint], Seq[Conflict]) = {
+      cs.foldLeft(
+        (Seq.empty[GroundConstraint], Seq.empty[Conflict])) {
+          case ((ct, cf), c) =>
+            (simplify(c.lhs), simplify(c.rhs)) match {
+              case (l, r) if l == r =>
+                (ct, cf)
+              case (_, Pred.True) =>
+                (ct, cf)
+              case _ =>
+                (ct :+ c, cf)
+            }
+        }
+    }
+
+    def simplify(p: Pred): Pred = p
+  }
+
+  // TODO: add pos
+  case class GroundConstraint(lhs: Pred, rhs: Pred) {
+    override def toString = s"$lhs <= $rhs"
   }
 
   class Graph(
@@ -231,6 +257,12 @@ trait Universe extends AnyRef
     lazy val allValues = constraints.flatMap(_.values).toSet
     lazy val assignedValues = binding.keySet
     lazy val unassignedValues = allValues -- assignedValues
+
+    // TODO: check unbound values
+    def groundConstraints: Seq[GroundConstraint] =
+      constraints.map { c =>
+        GroundConstraint(c.lhs.pred(binding), c.rhs.pred(binding))
+      }
 
     def hasUnassignedIncomingEdge(v: Value): Boolean =
       incomingEdges(v).flatMap(_.lhs.toValue).exists(unassignedValues)

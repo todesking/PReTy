@@ -14,6 +14,8 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
     global.reporter.error(pos, msg)
   }
 
+  override def emptyPos = scala.reflect.internal.util.NoPosition
+
   override val query = new QueryAPI {
     override def name(f: DefSym) = f.name.toString
     override def paramss(f: DefSym): Seq[Seq[DefSym]] = f.paramLists.map(_.map(_.asTerm))
