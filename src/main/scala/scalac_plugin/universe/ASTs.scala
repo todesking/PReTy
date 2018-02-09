@@ -1,48 +1,10 @@
 package com.todesking.prety.scalac_plugin.universe
 
-import scala.language.implicitConversions
+import com.todesking.prety.Value
+import com.todesking.prety.util.PP
 
 trait ASTs { self: ForeignTypes =>
   def toAST(t: Tree): Seq[AST.CTODef]
-
-  sealed abstract class PP {
-    override def toString = toString(0)
-    def toString(level: Int): String
-    def isEmpty: Boolean
-    def indent: PP = PP.Indent(Seq(this))
-  }
-  object PP {
-    implicit def stringToPP(v: String) = Line(v)
-    implicit def seqToPP(v: Seq[PP]) = Items(v)
-
-    def indent(ps: PP*) = Indent(ps.filterNot(_.isEmpty))
-    def apply(ps: PP*) = Items(ps.filterNot(_.isEmpty))
-
-    case class Line(value: String) extends PP {
-      override def isEmpty = false
-      override def toString(level: Int) =
-        "  " * level + value
-    }
-    case class Items(items: Seq[PP]) extends PP {
-      override def isEmpty = items.isEmpty
-      override def toString(level: Int) =
-        items.map(_.toString(level)).mkString("\n")
-    }
-    case class Indent(items: Seq[PP]) extends PP {
-      override def isEmpty = items.isEmpty
-      override def toString(level: Int) =
-        items.map(_.toString(level + 1)).mkString("\n")
-    }
-  }
-
-  case class Value(id: Int, name: String) {
-    def tpe: TypeSym = ???
-    override def toString = s"$name#$id"
-  }
-  object Value {
-    private[this] val genSym = new GenSym()
-    def fresh(name: String = ""): Value = Value(genSym(), name)
-  }
 
   sealed abstract class AST {
     def pretty: PP

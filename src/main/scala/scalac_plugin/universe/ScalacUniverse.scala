@@ -71,25 +71,25 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
 
     def parseExpr(t: Tree): AST.Expr = t match {
       case b @ Block(stats, expr) =>
-        AST.Block(b.tpe, Value.fresh("{...}"), stats.flatMap(parseImpl), parseExpr(expr))
+        AST.Block(b.tpe, valueRepo.fresh("{...}"), stats.flatMap(parseImpl), parseExpr(expr))
       case Apply(fun, args) =>
         val (self, funSym, tpe) = parseFun(fun)
-        AST.Apply(self, funSym, tpe, Value.fresh(t.toString), Seq(args.map(parseExpr)))
+        AST.Apply(self, funSym, tpe, valueRepo.fresh(t.toString), Seq(args.map(parseExpr)))
       case t @ This(qual) =>
-        AST.This(t.tpe, Value.fresh(s"this"))
+        AST.This(t.tpe, valueRepo.fresh(s"this"))
       case Literal(Constant(v)) =>
         v match {
-          case i: Int => AST.IntLiteral(Value.fresh(s"lit:$i"), i)
-          case u: Unit => AST.UnitLiteral(Value.fresh(s"lit:()"))
+          case i: Int => AST.IntLiteral(valueRepo.fresh(s"lit:$i"), i)
+          case u: Unit => AST.UnitLiteral(valueRepo.fresh(s"lit:()"))
         }
       case sel @ Select(qual, name) =>
         val target = parseExpr(qual)
         val sym = sel.symbol.asTerm
-        AST.Apply(target, sym, sel.tpe, Value.fresh(sel.toString), Seq())
+        AST.Apply(target, sym, sel.tpe, valueRepo.fresh(sel.toString), Seq())
       case s @ Super(qual, mix) =>
-        AST.Super(s.tpe, Value.fresh(s.toString))
+        AST.Super(s.tpe, valueRepo.fresh(s.toString))
       case i @ Ident(name) =>
-        AST.ValRef(i.symbol.asTerm, i.tpe, Value.fresh(s"ref:${i.symbol}"))
+        AST.ValRef(i.symbol.asTerm, i.tpe, valueRepo.fresh(s"ref:${i.symbol}"))
       case unk => unknown("Expr", unk)
     }
 

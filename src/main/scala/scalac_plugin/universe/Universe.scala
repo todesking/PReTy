@@ -1,11 +1,12 @@
 package com.todesking.prety.scalac_plugin.universe
 
+import com.todesking.prety.Template
+
+import com.todesking.prety.{ Pred, Graph, Solver, Lang, Value }
+
 trait Universe extends AnyRef
   with ForeignTypes
-  with ASTs
-  with Preds
-  with Constraints
-  with Inferences {
+  with ASTs {
   private[this] def unk(t: AST): Nothing =
     throw new RuntimeException(s"Unknown AST: $t")
 
@@ -40,10 +41,10 @@ trait Universe extends AnyRef
           println(s"  $v")
       }
 
-    val conflicts = solve(inferred)
+    val conflicts = Solver.solve(inferred)
     conflicts.foreach { c =>
-      println(s"CONFLICT: ${c.pos}: ${c.message}")
-      reportError(c.pos, c.message)
+      println(s"CONFLICT: ${"???"}: ${c.message}")
+      reportError(null, c.message)
     }
   }
 
@@ -104,16 +105,26 @@ trait Universe extends AnyRef
 
   class ValueRepo {
     private[this] var values = Map.empty[DefSym, Value]
+    private[this] var thisValues = Map.empty[DefSym, Value]
+    private[this] var positions = Map.empty[Value, Pos]
+    private[this] var nextValueId = 0
+
     private[this] def register(key: DefSym, name: String): Value = {
       if (values.contains(key))
         throw new RuntimeException(s"Value conflict: $key")
-      val v = Value.fresh(name)
+      val v = fresh(name)
       values = values + (key -> v)
       v
     }
 
-    private[this] var thisValues = Map.empty[DefSym, Value]
+    def posOf(v: Value): Option[Pos] =
+      positions.get(v)
 
+    def fresh(name: String): Value = {
+      val v = Value(nextValueId, name)
+      nextValueId += 1
+      v
+    }
     def registerParam(fun: DefSym, p: DefSym): Value =
       register(p, s"${query.name(fun)}/(${query.name(p)})")
 
@@ -124,7 +135,7 @@ trait Universe extends AnyRef
 
     def getOrRegisterThis(fun: DefSym): Value =
       thisValues.get(fun).getOrElse {
-        val v = Value.fresh(s"${query.name(fun)}/this")
+        val v = fresh(s"${query.name(fun)}/this")
         thisValues = thisValues + (fun -> v)
         v
       }
@@ -173,143 +184,7 @@ trait Universe extends AnyRef
     Template(self, ret, paramss, bindings)
   }
 
-  case class Template(
-    self: Value,
-    ret: Value,
-    argss: Seq[Seq[Value]],
-    bindings: Map[Value, Pred]) {
-    override def toString =
-      s"$self.(${argss.map(_.map(_.toString).mkString("(", ", ", ")")).mkString("")}) = $ret"
-    // TODO: check acyclic
-    def apply(
-      aSelf: Value,
-      aRet: Value,
-      aArgss: Seq[Seq[Value]]): Graph = {
-      require(argss.map(_.size) == aArgss.map(_.size))
-
-      val argSub = Map(self -> aSelf) ++
-        argss.flatten.zip(aArgss.flatten).map { case (p, a) => p -> a }
-
-      Graph
-        .constraint(aSelf *<:= self)
-        .constraint(
-          argss.flatten.zip(aArgss.flatten).map {
-            case (p, a) =>
-              a *<:= p.substitute(argSub)
-          })
-        .constraint(aRet *<:= ret.substitute(argSub))
-    }
-  }
-
-  def solve(g: Graph): Seq[Conflict] = {
-    val (nonTrivial, trivialConflicts) = Solve.solveTrivial(g.groundConstraints)
-    trivialConflicts ++ nonTrivial.map { c =>
-      Conflict(emptyPos, s"Constraint is not trivial and can't solve: ${c.lhs} <= ${c.rhs}")
-    }
-  }
-  object Solve {
-    def solveTrivial(cs: Seq[GroundConstraint]): (Seq[GroundConstraint], Seq[Conflict]) = {
-      cs.foldLeft(
-        (Seq.empty[GroundConstraint], Seq.empty[Conflict])) {
-          case ((ct, cf), c) =>
-            (simplify(c.lhs), simplify(c.rhs)) match {
-              case (l, r) if l == r =>
-                (ct, cf)
-              case (_, Pred.True) =>
-                (ct, cf)
-              case _ =>
-                (ct :+ c, cf)
-            }
-        }
-    }
-
-    def simplify(p: Pred): Pred = p
-  }
-
-  // TODO: add pos
-  case class GroundConstraint(lhs: Pred, rhs: Pred) {
-    override def toString = s"$lhs <= $rhs"
-  }
-
-  class Graph(
-    val constraints: Seq[Constraint],
-    val binding: Map[Value, Pred]) {
-    def +(rhs: Graph) = {
-      val conflicts = this.binding.keySet intersect rhs.binding.keySet
-      if (conflicts.nonEmpty) {
-        throw new RuntimeException(s"Binding conflict: ${conflicts.mkString(", ")}")
-      }
-      new Graph(
-        constraints ++ rhs.constraints,
-        binding ++ rhs.binding)
-    }
-
-    def merge(rhs: Graph) = this + rhs
-    def merge(rhs: Seq[Graph]) = this + Graph.merge(rhs)
-
-    def constraint(c: Constraint) =
-      this + Graph.constraint(c)
-    def constraint(cs: Seq[Constraint]) =
-      this + Graph.constraint(cs)
-    def bind(vps: Map[Value, Pred]) =
-      this + Graph.bind(vps)
-
-    lazy val allValues = constraints.flatMap(_.values).toSet
-    lazy val assignedValues = binding.keySet
-    lazy val unassignedValues = allValues -- assignedValues
-
-    // TODO: check unbound values
-    def groundConstraints: Seq[GroundConstraint] =
-      constraints.map { c =>
-        GroundConstraint(c.lhs.pred(binding), c.rhs.pred(binding))
-      }
-
-    def hasUnassignedIncomingEdge(v: Value): Boolean =
-      incomingEdges(v).flatMap(_.lhs.toValue).exists(unassignedValues)
-
-    def incomingEdges(v: Value): Set[Constraint] =
-      constraints.filter { c => c.rhs.toValue.contains(v) }.toSet
-
-    @scala.annotation.tailrec
-    final def infer(): Graph = {
-      val next = infer0()
-      if (next.binding == this.binding) this
-      else next.infer()
-    }
-
-    private[this] final def infer0(): Graph = {
-      // TODO: weaken with visibility
-      val newBinding =
-        unassignedValues
-          .filterNot(hasUnassignedIncomingEdge)
-          .foldLeft(binding) { (b, v) =>
-            val p = Pred.and(incomingEdges(v).map(_.lhs).map(_.pred(b)).toSeq)
-            b + (v -> p)
-          }
-      new Graph(constraints, newBinding)
-    }
-  }
-  object Graph {
-    val empty: Graph = new Graph(Seq(), Map())
-
-    def merge(gs: Seq[Graph]): Graph =
-      gs.foldLeft(empty) { (a, x) => a + x }
-    def constraint(c: Constraint): Graph =
-      new Graph(Seq(c), Map())
-    def constraint(cs: Seq[Constraint]): Graph =
-      new Graph(cs, Map())
-    def bind(v: Value, p: Pred): Graph =
-      new Graph(Seq(), Map(v -> p))
-    def bind(vps: Map[Value, Pred]): Graph =
-      new Graph(Seq(), vps)
-  }
-
-  class Env {
-    def isVisibleFrom(v: Value, from: Value): Boolean = ???
-  }
-
   def reportError(pos: Pos, msg: String): Unit
 
-  case class Conflict(pos: Pos, message: String)
 }
 
