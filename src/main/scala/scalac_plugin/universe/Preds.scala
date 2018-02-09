@@ -56,7 +56,13 @@ trait Preds { self: ForeignTypes with ASTs =>
           env.mapValues { v =>
             mapping.get(v) getOrElse v
           })
-      override def toString = s"{$expr}[${env.map { case (k, v) => s"$k -> $v" }.mkString(", ")}]"
+      override def toString = {
+        val names = expr.names
+        val activeEnv = env.filter { case (k, v) => names(k) }
+
+        if (activeEnv.isEmpty) s"{$expr}"
+        else s"{$expr}[${activeEnv.map { case (k, v) => s"$k -> $v" }.mkString(", ")}]"
+      }
     }
   }
 
@@ -149,16 +155,28 @@ trait Preds { self: ForeignTypes with ASTs =>
       def int = "[0-9]|[1-9][0-9]*".r ^^ { v => AST.LitInt(v.toInt) }
     }
 
-    sealed abstract class AST(override val toString: String)
+    sealed abstract class AST(override val toString: String) {
+      def names: Set[String]
+    }
     object AST {
-      case object TheValue extends AST("_")
-      case class Ident(name: String) extends AST(name)
-      case class Select(value: AST, name: String) extends AST(s"$value.$name")
+      case object TheValue extends AST("_") {
+        override def names = Set()
+      }
+      case class Ident(name: String) extends AST(name) {
+        override def names = Set(name)
+      }
+      case class Select(value: AST, name: String) extends AST(s"$value.$name") {
+        override def names = value.names
+      }
 
-      sealed abstract class Lit(s: String) extends AST(s)
+      sealed abstract class Lit(s: String) extends AST(s) {
+        override def names = Set()
+      }
       case class LitInt(value: Int) extends Lit(value.toString)
 
-      case class Op(lhs: AST, op: String, rhs: AST) extends AST(s"$lhs $op $rhs")
+      case class Op(lhs: AST, op: String, rhs: AST) extends AST(s"$lhs $op $rhs") {
+        override def names = lhs.names ++ rhs.names
+      }
     }
   }
 }
