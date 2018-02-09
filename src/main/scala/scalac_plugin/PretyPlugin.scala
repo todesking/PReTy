@@ -13,7 +13,8 @@ class PretyPlugin(override val global: Global) extends Plugin {
 
 class Component(override val global: Global) extends PluginComponent {
   override val phaseName = "prety-check-phase"
-  override val runsAfter = List("typer")
+  override val runsAfter = List()
+  override val runsRightAfter = Some("typer")
   override def newPhase(prev: Phase): Phase = new StdPhase(prev) {
     override def apply(unit: global.CompilationUnit): Unit = {
       val u = new ScalacUniverse[global.type](global)

@@ -15,7 +15,7 @@ trait Universe extends AnyRef
   }
 
   def analyzeCTO(cto: AST.CTODef): Unit = {
-    println(s"Analyzing: $cto")
+    println(s"Analyzing CTO: ${cto.pretty.toString(0)}")
     val graph = Graph.merge(cto.impl.map(buildGraph))
     val inferred = graph.infer()
     println(inferred.constraints.mkString("\n"))
