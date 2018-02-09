@@ -232,7 +232,7 @@ trait Universe extends AnyRef
     lazy val unassignedValues = allValues -- assignedValues
 
     def hasUnassignedIncomingEdge(v: Value): Boolean =
-      incomingEdges(v).flatMap(_.values).exists(unassignedValues)
+      incomingEdges(v).flatMap(_.lhs.toValue).exists(unassignedValues)
 
     def incomingEdges(v: Value): Set[Constraint] =
       constraints.filter { c => c.rhs.toValue.contains(v) }.toSet

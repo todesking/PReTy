@@ -87,8 +87,7 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
       case s @ Super(qual, mix) =>
         AST.Super(s.tpe, Value.fresh(s.toString))
       case i @ Ident(name) =>
-        val template = templateOf(i.symbol.asTerm)
-        AST.ValRef(i.symbol.asTerm, i.tpe, template.ret)
+        AST.ValRef(i.symbol.asTerm, i.tpe, Value.fresh(s"ref:${i.symbol}"))
       case unk => unknown("Expr", unk)
     }
 
