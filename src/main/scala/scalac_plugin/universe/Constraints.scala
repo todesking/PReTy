@@ -2,13 +2,12 @@ package com.todesking.prety.scalac_plugin.universe
 
 trait Constraints { self: ASTs with Preds =>
   sealed abstract class PredHolder {
-    def substitute(mapping: Map[Value, Value]): PredHolder
     def pred(binding: Map[Value, Pred]): Pred
     def toValue: Option[Value]
   }
   object PredHolder {
     case class Variable(value: Value) extends PredHolder {
-      override def substitute(mapping: Map[Value, Value]) =
+      def substitute(mapping: Map[Value, Value]) =
         Substitute(mapping, this)
       override def pred(binding: Map[Value, Pred]) = binding(value)
       override def toValue = Some(value)
@@ -16,8 +15,6 @@ trait Constraints { self: ASTs with Preds =>
     }
 
     case class Substitute(mapping: Map[Value, Value], original: PredHolder) extends PredHolder {
-      // TODO: Really need it?
-      override def substitute(m: Map[Value, Value]) = ???
       override def pred(binding: Map[Value, Pred]) =
         original.pred(binding).substitute(mapping)
       override def toValue = original.toValue
