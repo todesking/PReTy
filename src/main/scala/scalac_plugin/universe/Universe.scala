@@ -40,7 +40,7 @@ trait Universe extends AnyRef
           println(s"  $v")
       }
 
-    val conflicts = solve(inferred.constraints, inferred.binding)
+    val conflicts = solve(inferred)
     conflicts.foreach { c =>
       reportError(c.pos, c.message)
     }
@@ -77,7 +77,7 @@ trait Universe extends AnyRef
 
     case AST.Apply(self, sym, tpe, value, argss) =>
       val template = templateOf(sym)
-      // TODO: lookup value's binding from sym's template
+      println(template)
       buildGraph(self)
         .merge(argss.flatten.map(buildGraph))
         .merge(template.apply(self.value, value, argss.map(_.map(_.value))))
@@ -111,6 +111,8 @@ trait Universe extends AnyRef
       v
     }
 
+    private[this] var thisValues = Map.empty[DefSym, Value]
+
     def registerParam(fun: DefSym, p: DefSym): Value =
       register(p, s"${query.name(fun)}/(${query.name(p)})")
 
@@ -120,13 +122,10 @@ trait Universe extends AnyRef
       }
 
     def getOrRegisterThis(fun: DefSym): Value =
-      values.get(fun).getOrElse {
-        register(fun, s"${query.name(fun)}/this")
-      }
-
-    def get(key: DefSym): Value =
-      values.get(key).getOrElse {
-        throw new RuntimeException(s"Undefined value: $key")
+      thisValues.get(fun).getOrElse {
+        val v = Value.fresh(s"${query.name(fun)}/this")
+        thisValues = thisValues + (fun -> v)
+        v
       }
   }
 
@@ -178,6 +177,8 @@ trait Universe extends AnyRef
     ret: Value,
     argss: Seq[Seq[Value]],
     bindings: Map[Value, Pred]) {
+    override def toString =
+      s"$self.(${argss.map(_.map(_.toString).mkString("(", ", ", ")")).mkString("")}) = $ret"
     // TODO: check acyclic
     def apply(
       aSelf: Value,
@@ -194,13 +195,12 @@ trait Universe extends AnyRef
           argss.flatten.zip(aArgss.flatten).map {
             case (p, a) =>
               a *<:= p.substitute(argSub)
-          }).constraint(aRet *<:= ret.substitute(argSub))
+          })
+        .constraint(aRet *<:= ret.substitute(argSub))
     }
   }
 
-  case class BoundValue(value: Value, pred: Pred)
-
-  def solve(cs: Seq[Constraint], binding: Map[Value, Pred]): Seq[Conflict] = {
+  def solve(g: Graph): Seq[Conflict] = {
     Seq()
   }
 
