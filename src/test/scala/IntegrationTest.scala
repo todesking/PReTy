@@ -71,7 +71,7 @@ class IntegrationTest extends FunSpec {
         println(s"Unexpected Error: $pos, $msg")
     }
 
-    assert(errors == expectedErrors)
+    assert(errors == eErrors)
 
   }
 }

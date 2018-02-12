@@ -2,10 +2,9 @@ package com.todesking.prety
 
 object Solver {
   def solve(g: Graph): Seq[Conflict] = {
-    val (nonTrivial, trivialConflicts) = solveTrivial(g.groundConstraints)
-    trivialConflicts ++ nonTrivial.map { c =>
-      Conflict(c)
-    }
+    val (nontrivials, trivialConflicts) = solveTrivial(g.groundConstraints)
+    val nontrivialConflicts = solveSMT(nontrivials)
+    trivialConflicts ++ nontrivialConflicts
   }
   def solveTrivial(cs: Seq[GroundConstraint]): (Seq[GroundConstraint], Seq[Conflict]) = {
     cs.foldLeft(
@@ -23,4 +22,8 @@ object Solver {
   }
 
   def simplify(p: Pred): Pred = p
+
+  def solveSMT(constraints: Seq[GroundConstraint]): Seq[Conflict] = {
+    Seq()
+  }
 }
