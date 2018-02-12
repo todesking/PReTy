@@ -95,7 +95,7 @@ trait Universe extends AnyRef
         .merge(argss.flatten.map(buildGraph))
         .merge(template.apply(self.value, value, argss.map(_.map(_.value))))
 
-    case AST.ValRef(sym, tpe, value) =>
+    case AST.LocalRef(sym, tpe, value) =>
       // TODO: add equality
       Graph.empty
 

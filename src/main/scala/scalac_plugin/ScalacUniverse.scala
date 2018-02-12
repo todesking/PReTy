@@ -102,7 +102,7 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
       case s @ Super(qual, mix) =>
         AST.Super(s.tpe, valueRepo.newExpr(s.toString, t.pos))
       case i @ Ident(name) =>
-        AST.ValRef(i.symbol.asTerm, i.tpe, valueRepo.newExpr(s"ref:${i.symbol}", t.pos))
+        AST.LocalRef(i.symbol.asTerm, i.tpe, valueRepo.newExpr(s"ref:${i.symbol}", t.pos))
       case unk => unknown("Expr", unk)
     }
 

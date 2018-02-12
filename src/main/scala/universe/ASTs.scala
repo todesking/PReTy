@@ -42,11 +42,11 @@ trait ASTs { self: ForeignTypes =>
         PP.indent(argss.flatten.map(_.pretty)))
     }
     // TODO: where is `self`?
-    case class ValRef(
+    case class LocalRef(
       sym: DefSym,
       tpe: TypeSym,
       value: Value) extends Expr {
-      override def pretty = s"ValRef($sym)"
+      override def pretty = s"LocalRef($sym)"
     }
     case class Super(tpe: TypeSym, value: Value) extends Expr {
       override def pretty = s"Super $value"
