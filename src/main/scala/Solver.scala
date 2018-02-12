@@ -4,7 +4,7 @@ object Solver {
   def solve(g: Graph): Seq[Conflict] = {
     val (nonTrivial, trivialConflicts) = solveTrivial(g.groundConstraints)
     trivialConflicts ++ nonTrivial.map { c =>
-      Conflict(null, s"Constraint is not trivial and can't solve: ${c.lhs} <= ${c.rhs}")
+      Conflict(c)
     }
   }
   def solveTrivial(cs: Seq[GroundConstraint]): (Seq[GroundConstraint], Seq[Conflict]) = {

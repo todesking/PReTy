@@ -62,8 +62,17 @@ class IntegrationTest extends FunSpec {
     val nothappens = (eErrors -- errors).toSeq.sortBy(_._1)
     val unexpecteds = (errors -- eErrors).toSeq.sortBy(_._1)
 
-    assert(nothappens == Seq(), "Errors not happen")
-    assert(unexpecteds == Seq(), "Unexpected errors")
+    nothappens.foreach {
+      case (pos, msg) =>
+        println(s"Error expected but not happens: $pos, $msg")
+    }
+    unexpecteds.foreach {
+      case (pos, msg) =>
+        println(s"Unexpected Error: $pos, $msg")
+    }
+
+    assert(errors == expectedErrors)
+
   }
 }
 

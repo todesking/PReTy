@@ -9,10 +9,10 @@ trait ValueRepos { self: ForeignTypes with Queries =>
     private[this] var positions = Map.empty[Value, Pos]
     private[this] var nextValueId = 0
 
-    private[this] def register(key: DefSym, name: String, pos: Pos = query.emptyPos): Value = {
+    private[this] def register(key: DefSym, name: String): Value = {
       if (values.contains(key))
         throw new RuntimeException(s"Value conflict: $key")
-      val v = fresh(name, pos)
+      val v = fresh(name, query.emptyPos)
       values = values + (key -> v)
       v
     }
@@ -20,6 +20,8 @@ trait ValueRepos { self: ForeignTypes with Queries =>
     private[this] def fresh(name: String, pos: Pos): Value = {
       val v = Value(nextValueId, name)
       nextValueId += 1
+      if (pos != query.emptyPos)
+        positions = positions + (v -> pos)
       v
     }
 

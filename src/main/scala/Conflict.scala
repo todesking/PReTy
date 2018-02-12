@@ -1,3 +1,6 @@
-
 package com.todesking.prety
-case class Conflict(value: Value, message: String)
+
+case class Conflict(constraint: GroundConstraint) {
+  def message: String = constraint.toString
+  def focus: Value = constraint.focus
+}

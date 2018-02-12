@@ -29,9 +29,7 @@ class Graph(
 
   // TODO: check unbound values
   def groundConstraints: Seq[GroundConstraint] =
-    constraints.map { c =>
-      GroundConstraint(c.lhs.pred(binding), c.rhs.pred(binding))
-    }
+    constraints.map(_.ground(binding))
 
   def hasUnassignedIncomingEdge(v: Value): Boolean =
     incomingEdges(v).flatMap(_.lhs.toValue).exists(unassignedValues)

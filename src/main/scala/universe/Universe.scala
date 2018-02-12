@@ -1,6 +1,6 @@
 package com.todesking.prety.universe
 
-import com.todesking.prety.{ Pred, Graph, Solver, Lang, Value }
+import com.todesking.prety.{ Pred, Graph, Solver, Lang }
 
 trait Universe extends AnyRef
   with ForeignTypes
@@ -10,9 +10,6 @@ trait Universe extends AnyRef
   with TemplateRepos {
   def toAST(t: Tree): Seq[AST.CTODef]
   def reportError(pos: Pos, msg: String): Unit
-
-  def pos(v: Value): Pos =
-    valueRepo.getPos(v) getOrElse query.emptyPos
 
   def templateOf(f: DefSym) =
     templateRepo.get(f)
@@ -53,8 +50,8 @@ trait Universe extends AnyRef
 
     val conflicts = Solver.solve(inferred)
     conflicts.foreach { c =>
-      val p = valueRepo.getPos(c.value) getOrElse query.emptyPos
-      println(s"CONFLICT: ${p}: ${c.message}")
+      val p = valueRepo.getPos(c.focus) getOrElse query.emptyPos
+      println(s"CONFLICT: ${c.focus}(pos: ${p != query.emptyPos}): ${c.message}")
       reportError(p, c.message)
     }
   }
