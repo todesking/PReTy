@@ -72,8 +72,7 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
             if (rhs.isEmpty) None else Some(parseExpr(rhs))))
       case vd @ ValDef(mods, name, tpt, rhs) =>
         val sym = vd.symbol.asTerm
-        val template = templateOf(sym)
-        Seq(AST.ValDef(sym, sym.selfType, template.ret, if (rhs.isEmpty) None else Some(parseExpr(rhs))))
+        Seq(AST.ValDef(sym, sym.selfType, if (rhs.isEmpty) None else Some(parseExpr(rhs))))
       case other =>
         Seq(parseExpr(other))
     }

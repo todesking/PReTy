@@ -61,6 +61,8 @@ class Graph(
 object Graph {
   val empty: Graph = new Graph(Seq(), Map())
 
+  def merge(g: Graph): Graph =
+    g
   def merge(gs: Seq[Graph]): Graph =
     gs.foldLeft(empty) { (a, x) => a + x }
   def constraint(c: Constraint): Graph =

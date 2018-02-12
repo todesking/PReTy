@@ -75,7 +75,6 @@ trait ASTs { self: ForeignTypes =>
     case class ValDef(
       sym: DefSym,
       tpe: TypeSym,
-      value: Value,
       body: Option[Expr]) extends Term {
       override def pretty = PP(
         s"ValDef($sym)",

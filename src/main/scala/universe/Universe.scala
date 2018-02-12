@@ -62,12 +62,11 @@ trait Universe extends AnyRef
   def buildGraph(t: AST.InImpl): Graph = t match {
     case AST.CTODef(impl) => unk(t)
 
-    case AST.ValDef(sym, tpe, value, body) =>
+    case AST.ValDef(sym, tpe, body) =>
       // TODO: Use default binding if public
       val template = templateOf(sym)
       body.fold(Graph.empty) { b =>
         Graph
-          .constraint(b.value *<:= value)
           .merge(buildGraph(b))
           .constraint(b.value *<:= template.ret)
       }.bind(template.bindings)
