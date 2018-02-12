@@ -9,22 +9,30 @@ trait ValueRepos { self: ForeignTypes with Queries =>
     private[this] var positions = Map.empty[Value, Pos]
     private[this] var nextValueId = 0
 
-    private[this] def register(key: DefSym, name: String): Value = {
+    private[this] def register(key: DefSym, name: String, pos: Pos = query.emptyPos): Value = {
       if (values.contains(key))
         throw new RuntimeException(s"Value conflict: $key")
-      val v = fresh(name)
+      val v = fresh(name, pos)
       values = values + (key -> v)
+      v
+    }
+
+    private[this] def fresh(name: String, pos: Pos): Value = {
+      val v = Value(nextValueId, name)
+      nextValueId += 1
       v
     }
 
     def getPos(v: Value): Option[Pos] =
       positions.get(v)
 
-    def fresh(name: String): Value = {
-      val v = Value(nextValueId, name)
-      nextValueId += 1
-      v
-    }
+    def setPos(v: Value, p: Pos): Unit =
+      if (positions.contains(v)) throw new RuntimeException(s"Pos registered twice")
+      else positions = positions + (v -> p)
+
+    def newExpr(name: String, pos: Pos): Value =
+      fresh(name, pos)
+
     def registerParam(fun: DefSym, p: DefSym): Value =
       register(p, s"${query.name(fun)}/(${query.name(p)})")
 
@@ -35,7 +43,7 @@ trait ValueRepos { self: ForeignTypes with Queries =>
 
     def getOrRegisterThis(fun: DefSym): Value =
       thisValues.get(fun).getOrElse {
-        val v = fresh(s"${query.name(fun)}/this")
+        val v = fresh(s"${query.name(fun)}/this", query.emptyPos)
         thisValues = thisValues + (fun -> v)
         v
       }

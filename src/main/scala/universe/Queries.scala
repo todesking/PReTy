@@ -6,5 +6,6 @@ trait Queries { self: ForeignTypes =>
     def name(f: DefSym): String
     def paramss(f: DefSym): Seq[Seq[DefSym]]
     def refinementSrc(f: DefSym): Seq[String]
+    def emptyPos: Pos
   }
 }

@@ -16,8 +16,6 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
     global.reporter.error(pos, msg)
   }
 
-  override def emptyPos = scala.reflect.internal.util.NoPosition
-
   override val query = new QueryAPI {
     override def name(f: DefSym) = f.name.toString
     override def paramss(f: DefSym): Seq[Seq[DefSym]] = f.paramLists.map(_.map(_.asTerm))
@@ -31,6 +29,7 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
           }
       }
     }
+    override def emptyPos = scala.reflect.internal.util.NoPosition
   }
 
   private[this] val annotationTpe = global.rootMirror.getRequiredClass("com.todesking.prety.refine").tpe
@@ -55,7 +54,15 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
         Seq()
       case dd @ DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
         val sym = dd.symbol.asMethod
-        templateOf(sym)
+        val template = templateOf(sym)
+        valueRepo.setPos(template.self, t.pos)
+        valueRepo.setPos(template.ret, t.pos)
+        for {
+          (vs, ts) <- template.argss.zip(vparamss)
+          (v, t) <- vs.zip(ts)
+        } {
+          valueRepo.setPos(v, t.pos)
+        }
         // TODO: remove values from def/ref AST: Symbols is enough
         // TODO: Handle default args
         Seq(
@@ -73,25 +80,29 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
 
     def parseExpr(t: Tree): AST.Expr = t match {
       case b @ Block(stats, expr) =>
-        AST.Block(b.tpe, valueRepo.fresh("{...}"), stats.flatMap(parseImpl), parseExpr(expr))
+        AST.Block(
+          b.tpe,
+          valueRepo.newExpr("{...}", t.pos),
+          stats.flatMap(parseImpl),
+          parseExpr(expr))
       case Apply(fun, args) =>
         val (self, funSym, tpe) = parseFun(fun)
-        AST.Apply(self, funSym, tpe, valueRepo.fresh(t.toString), Seq(args.map(parseExpr)))
+        AST.Apply(self, funSym, tpe, valueRepo.newExpr(t.toString, t.pos), Seq(args.map(parseExpr)))
       case t @ This(qual) =>
-        AST.This(t.tpe, valueRepo.fresh(s"this"))
+        AST.This(t.tpe, valueRepo.newExpr(s"this", t.pos))
       case Literal(Constant(v)) =>
         v match {
-          case i: Int => AST.IntLiteral(valueRepo.fresh(s"lit:$i"), i)
-          case u: Unit => AST.UnitLiteral(valueRepo.fresh(s"lit:()"))
+          case i: Int => AST.IntLiteral(valueRepo.newExpr(s"lit:$i", t.pos), i)
+          case u: Unit => AST.UnitLiteral(valueRepo.newExpr(s"lit:()", t.pos))
         }
       case sel @ Select(qual, name) =>
         val target = parseExpr(qual)
         val sym = sel.symbol.asTerm
-        AST.Apply(target, sym, sel.tpe, valueRepo.fresh(sel.toString), Seq())
+        AST.Apply(target, sym, sel.tpe, valueRepo.newExpr(sel.toString, t.pos), Seq())
       case s @ Super(qual, mix) =>
-        AST.Super(s.tpe, valueRepo.fresh(s.toString))
+        AST.Super(s.tpe, valueRepo.newExpr(s.toString, t.pos))
       case i @ Ident(name) =>
-        AST.ValRef(i.symbol.asTerm, i.tpe, valueRepo.fresh(s"ref:${i.symbol}"))
+        AST.ValRef(i.symbol.asTerm, i.tpe, valueRepo.newExpr(s"ref:${i.symbol}", t.pos))
       case unk => unknown("Expr", unk)
     }
 

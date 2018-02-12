@@ -9,11 +9,10 @@ trait Universe extends AnyRef
   with ValueRepos
   with TemplateRepos {
   def toAST(t: Tree): Seq[AST.CTODef]
-  def emptyPos: Pos
   def reportError(pos: Pos, msg: String): Unit
 
   def pos(v: Value): Pos =
-    valueRepo.getPos(v) getOrElse emptyPos
+    valueRepo.getPos(v) getOrElse query.emptyPos
 
   def templateOf(f: DefSym) =
     templateRepo.get(f)
@@ -54,8 +53,9 @@ trait Universe extends AnyRef
 
     val conflicts = Solver.solve(inferred)
     conflicts.foreach { c =>
-      println(s"CONFLICT: ${"???"}: ${c.message}")
-      reportError(null, c.message)
+      val p = valueRepo.getPos(c.value) getOrElse query.emptyPos
+      println(s"CONFLICT: ${p}: ${c.message}")
+      reportError(p, c.message)
     }
   }
 
