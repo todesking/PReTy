@@ -3,8 +3,6 @@ package com.todesking.prety.scalac_plugin
 import scala.tools.nsc.{ Global, Phase }
 import scala.tools.nsc.plugins.{ Plugin, PluginComponent }
 
-import com.todesking.prety.scalac_plugin.universe.ScalacUniverse
-
 class PretyPlugin(override val global: Global) extends Plugin {
   override val name = "prety-scalac-plugin"
   override val description = "PReTy Scalac Plugin"

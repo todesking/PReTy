@@ -1,4 +1,4 @@
-package com.todesking.prety.scalac_plugin.universe
+package com.todesking.prety.scalac_plugin
 
 import scala.tools.nsc.Global
 
