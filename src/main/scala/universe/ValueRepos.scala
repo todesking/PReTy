@@ -1,8 +1,6 @@
 package com.todesking.prety.universe
 
-import com.todesking.prety.Value
-
-trait ValueRepos { self: ForeignTypes with Queries =>
+trait ValueRepos { self: ForeignTypes with Queries with Values =>
   class ValueRepo {
     private[this] var values = Map.empty[DefSym, Value]
     private[this] var thisValues = Map.empty[DefSym, Value]

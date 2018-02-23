@@ -1,9 +1,8 @@
 package com.todesking.prety.universe
 
-import com.todesking.prety.Value
 import com.todesking.prety.util.PP
 
-trait ASTs { self: ForeignTypes =>
+trait ASTs { self: ForeignTypes with Values =>
   sealed abstract class AST {
     def pretty: PP
   }

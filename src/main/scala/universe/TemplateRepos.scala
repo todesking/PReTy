@@ -1,8 +1,8 @@
 package com.todesking.prety.universe
 
-import com.todesking.prety.{ Template, Lang, Pred }
+import com.todesking.prety.Lang
 
-trait TemplateRepos { self: ForeignTypes with Queries with ValueRepos =>
+trait TemplateRepos { self: ForeignTypes with Queries with ValueRepos with Templates with Preds =>
   val templateRepo = new TemplateRepo
 
   class TemplateRepo {

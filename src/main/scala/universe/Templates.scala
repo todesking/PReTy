@@ -1,5 +1,6 @@
-package com.todesking.prety
+package com.todesking.prety.universe
 
+trait Templates { self: Preds with Graphs with Values =>
 case class Template(
   self: Value,
   ret: Value,
@@ -26,4 +27,5 @@ case class Template(
         })
       .constraint(aRet *<:= ret.substitute(argSub))
   }
+}
 }

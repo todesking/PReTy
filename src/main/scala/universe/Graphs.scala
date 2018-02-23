@@ -1,5 +1,6 @@
-package com.todesking.prety
+package com.todesking.prety.universe
 
+trait Graphs { self: Values with Preds with Constraints =>
 class Graph(
   val constraints: Seq[Constraint],
   val binding: Map[Value, Pred]) {
@@ -72,4 +73,4 @@ object Graph {
   def bind(vps: Map[Value, Pred]): Graph =
     new Graph(Seq(), vps)
 }
-
+}

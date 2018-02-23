@@ -1,13 +1,21 @@
 package com.todesking.prety.universe
 
-import com.todesking.prety.{ Pred, Graph, Solver, Lang }
+import com.todesking.prety.Lang
 
 trait Universe extends AnyRef
   with ForeignTypes
+  with Constraints
+  with Conflicts
+  with Values
+  with ValueRepos
   with ASTs
   with Queries
-  with ValueRepos
-  with TemplateRepos {
+  with Preds
+  with Props
+  with Graphs
+  with Templates
+  with TemplateRepos
+  with Solvers {
   def toAST(t: Tree): Seq[AST.CTODef]
   def reportError(pos: Pos, msg: String): Unit
 

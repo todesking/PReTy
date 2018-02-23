@@ -1,5 +1,6 @@
-package com.todesking.prety
+package com.todesking.prety.universe
 
+trait Constraints { self: Values with Preds =>
 // represents lhs <= rhs
 sealed abstract class Constraint {
   def lhs: PredHolder
@@ -23,4 +24,15 @@ object Constraint {
     override def toString = s"$lhs <=* $rhs"
     override def focus = rhs.value
   }
+}
+
+case class GroundConstraint(constraint: Constraint, lhs: Pred, rhs: Pred) {
+  override def toString = constraint match {
+    case Constraint.FocusLeft(l, r) =>
+      s"$lhs *<= $rhs"
+    case Constraint.FocusRight(l, r) =>
+      s"$lhs <=* $rhs"
+  }
+  def focus: Value = constraint.focus
+}
 }

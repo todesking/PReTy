@@ -1,5 +1,6 @@
-package com.todesking.prety
+package com.todesking.prety.universe
 
+trait Solvers { self: Graphs with Constraints with Conflicts with Preds =>
 object Solver {
   def solve(g: Graph): Seq[Conflict] = {
     val (nontrivials, trivialConflicts) = solveTrivial(g.groundConstraints)
@@ -26,4 +27,5 @@ object Solver {
   def solveSMT(constraints: Seq[GroundConstraint]): Seq[Conflict] = {
     Seq()
   }
+}
 }
