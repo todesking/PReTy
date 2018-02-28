@@ -2,7 +2,7 @@ package com.todesking.prety.universe
 
 import com.todesking.prety.Lang
 
-trait TemplateRepos { self: ForeignTypes with Queries with ValueRepos with Templates with Preds =>
+trait TemplateRepos { self: ForeignTypes with Queries with Values with ValueRepos with Templates with Preds =>
   val templateRepo = new TemplateRepo
 
   class TemplateRepo {
@@ -18,11 +18,11 @@ trait TemplateRepos { self: ForeignTypes with Queries with ValueRepos with Templ
 
     private[this] def freshTemplate(f: DefSym): Template = {
       val srcs = query.refinementSrc(f)
-      val asts = srcs.flatMap(Lang.parse)
-      buildTemplate(f, asts)
+      val defs = Lang.parse(srcs)
+      buildTemplate(f, defs)
     }
 
-    private[this] def buildTemplate(f: DefSym, preds: Seq[(String, Lang.AST)]): Template = {
+    private[this] def buildTemplate(f: DefSym, preds: Map[String, Lang.Def]): Template = {
       // TODO: Check unknown pred target
       val self = valueRepo.getOrRegisterThis(f)
       val paramss = query.paramss(f)
@@ -30,20 +30,23 @@ trait TemplateRepos { self: ForeignTypes with Queries with ValueRepos with Templ
       // When f is local val, ret is already registered as param
       val ret = valueRepo.getOrRegisterReturn(f)
 
-      val env = query.paramss(f).zip(paramss).flatMap {
+      val values = query.paramss(f).zip(paramss).flatMap {
         case (ps, vs) =>
           ps.zip(vs).map { case (p, v) => query.name(p) -> v }
-      }.toMap ++ Map("this" -> self, "_" -> ret)
+      }.toMap ++ Map("this" -> self)
+
+      val env: Env = new Env(
+        props = Map(),
+        values = values,
+        theValue = ret,
+        ops = Map())
 
       val bindings = preds
-        .groupBy(_._1)
-        .toMap
-        .mapValues(_.map(_._2))
-        .mapValues { asts =>
-          Pred.and(asts.map(Pred.Expr(_, env)))
-        }.map {
+        .map {
           case (k, v) =>
-            env(k) -> v
+            val target = env.findValue(k)
+            val pred = Pred.compile(v.props, target.tpe, env)
+            target -> pred
         }
       Template(self, ret, paramss, bindings)
     }

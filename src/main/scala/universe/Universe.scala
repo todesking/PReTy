@@ -1,15 +1,14 @@
 package com.todesking.prety.universe
 
-import com.todesking.prety.Lang
-
 trait Universe extends AnyRef
   with ForeignTypes
+  with Queries
+  with ForeignTypeOps
   with Constraints
   with Conflicts
   with Values
   with ValueRepos
   with ASTs
-  with Queries
   with Preds
   with Props
   with Graphs
@@ -110,9 +109,7 @@ trait Universe extends AnyRef
     case AST.IntLiteral(value, lit) =>
       Graph.bind(
         value,
-        Pred.Expr(
-          Lang.AST.Op(Lang.AST.TheValue, "==", Lang.AST.LitInt(lit)),
-          Map()))
+        Pred.exactInt(1))
 
     case AST.UnitLiteral(value) =>
       Graph.bind(value, Pred.True)

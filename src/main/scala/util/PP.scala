@@ -1,4 +1,3 @@
-
 package com.todesking.prety.util
 
 sealed abstract class PP {
