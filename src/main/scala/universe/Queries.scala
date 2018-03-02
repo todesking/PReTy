@@ -8,14 +8,16 @@ trait Queries { self: ForeignTypes =>
     def returnType(f: DefSym): TypeSym
     def thisType(f: DefSym): TypeSym
     def refinementSrc(f: DefSym): Seq[String]
-    def emptyPos: Pos
+
+    val emptyPos: Pos
+
     def <:<(lhs: TypeSym, rhs: TypeSym): Boolean
 
     val types: TypesAPI
     trait TypesAPI {
-      def nothing: TypeSym
-      def int: TypeSym
-      def boolean: TypeSym
+      val nothing: TypeSym
+      val int: TypeSym
+      val boolean: TypeSym
     }
   }
 }

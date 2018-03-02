@@ -2,7 +2,7 @@ package com.todesking.prety.universe
 
 import com.todesking.prety.Lang
 
-trait Preds { self: ForeignTypes with Queries with Values with Props =>
+trait Preds { self: ForeignTypes with Queries with Values with Props with Envs =>
   abstract class Pred {
     def tpe: TypeSym
 
@@ -14,7 +14,7 @@ trait Preds { self: ForeignTypes with Queries with Values with Props =>
     def definedProps: Map[PropKey, PropPred]
 
     // where this.tpe <:< tpe
-    // where _.tpe == tpe
+    // where _.tpe <:< tpe
     // def as(tpe: TypeSym): Pred
 
     def substitute(mapping: Map[Value, Value]): Pred
@@ -22,36 +22,29 @@ trait Preds { self: ForeignTypes with Queries with Values with Props =>
     def &(rhs: Pred): Pred
   }
 
-  class Env(
-    val props: Map[String, PropKey],
-    val values: Map[String, Value],
-    val theValue: Value,
-    val ops: Map[(TypeSym, String), (PropExpr, PropExpr) => PropExpr]) {
-    private[this] def nf(kind: String, key: String) = throw new RuntimeException(s"$kind $key not found")
-    def findProp(name: String, targetType: TypeSym): PropKey = name match {
-      case "_" =>
-        PropKey(targetType.toString, targetType, targetType)
-      case name =>
-        props.get(name) getOrElse nf("Property", name)
-    }
-    def findValue(name: String): Value =
-      values.get(name) getOrElse nf("Value", name)
-    def findOp(tpe: TypeSym, name: String): (PropExpr, PropExpr) => PropExpr =
-      ops.get(tpe -> name) getOrElse nf("Operator", s"$tpe.$name")
-  }
-
   object Pred {
     def and(ps: Seq[Pred]): Pred =
       ps.reduceOption(_ & _) getOrElse True
 
-    def apply(targetType: TypeSym, ppreds: Map[PropKey, PropPred]): Pred = ???
-
+    def apply(targetType: TypeSym, ppreds: Map[PropKey, PropPred]): Pred = {
+      // TODO: check prop key type
+      new Pred {
+        override def tpe = targetType
+        override def prop(key: PropKey) = ppreds.get(key) getOrElse PropPred.True
+        override def definedProps = ppreds
+        override def substitute(mapping: Map[Value, Value]) = apply(targetType, ppreds.mapValues(_.substitute(mapping)))
+        override def &(rhs: Pred) = ???
+        override def toString =
+          definedProps.map { case (k, v) => s"$k: $v" }.mkString("{", ", ", "}")
+      }
+    }
     case object True extends Pred {
       override def tpe = query.types.nothing
       override def prop(key: PropKey) = throw new IllegalArgumentException("True pred has no props")
       override def definedProps = Map()
       override def substitute(mapping: Map[Value, Value]) = this
       override def &(rhs: Pred) = rhs
+      override def toString = "{}"
     }
 
     def compile(props: Map[String, Lang.Expr], targetType: TypeSym, env: Env): Pred =
@@ -60,34 +53,103 @@ trait Preds { self: ForeignTypes with Queries with Values with Props =>
         props.map {
           case (name, expr) =>
             val key = env.findProp(name, targetType)
-            key -> compile1(key, expr, env)
+            key -> env.findWorld(key.tpe).buildPred(
+              Compiler.compile(expr, env))
         })
 
-    private[this] def compile1(key: PropKey, expr: Lang.Expr, env: Env): PropPred =
-      compileExpr(expr, env).toPropPred
+    def exactInt(value: Value, v: Int): Pred =
+      compile(Map("_" -> Lang.Expr.Op(Lang.Expr.TheValue, "==", Lang.Expr.LitInt(v))), query.types.int, buildEnv(Map(), value))
+  }
 
-    private[this] def compileExpr(expr: Lang.Expr, env: Env): PropExpr = {
-      import Lang.{ Expr => L }
-      val E = PropExpr
-      expr match {
-        case L.TheValue =>
-          E.ValueRef(env.theValue)
-        case L.Ident(name) =>
-          E.ValueRef(env.findValue(name))
-        case L.Select(expr, name) =>
-          ???
-        case L.LitInt(v) =>
-          E.LitInt(v)
-        case L.Op(lhs, name, rhs) =>
-          val el = compileExpr(lhs, env)
-          val er = compileExpr(rhs, env)
-          env.findOp(el.tpe, name).apply(el, er)
-      }
+  trait PropPred {
+    def substitute(mapping: Map[Value, Value]): PropPred
+  }
+  object PropPred {
+    val True = CorePred(CoreExpr.BOOL_Lit(true))
+  }
+
+  trait World {
+    val tpe: TypeSym
+    def buildPred(expr: Expr): PropPred
+    // def compileLogic(lhs, rhs): (Logic, Conflict)
+  }
+
+  object Compiler {
+    import Lang.{ Expr => E }
+    val CE = CoreExpr
+    def compile(ast: Lang.Expr, env: Env): Expr = ast match {
+      case E.TheValue =>
+        CE.TheValue(env.theValue.tpe)
+      case E.Ident(name) =>
+        CE.ValueRef(env.findValue(name))
+      case E.Select(expr, name) =>
+        ???
+      case E.LitInt(value) =>
+        CE.INT_Lit(value)
+      case E.Op(lhs, op, rhs) =>
+        val l = compile(lhs, env)
+        val r = compile(rhs, env)
+        env.findOp(l.tpe, op).apply(l, r)
+    }
+  }
+
+  class IntWorld extends World {
+    override val tpe = query.types.int
+
+    override def buildPred(expr: Expr): CorePred = expr match {
+      case e: CoreExpr => CorePred(e)
+    }
+  }
+
+  case class CorePred(expr: CoreExpr) extends PropPred {
+    override def substitute(mapping: Map[Value, Value]): CorePred =
+      CorePred(expr.substitute(mapping))
+  }
+
+  abstract class Expr {
+    def tpe: TypeSym
+    def substitute(mapping: Map[Value, Value]): Expr
+  }
+  sealed abstract class CoreExpr extends Expr {
+    override def substitute(mapping: Map[Value, Value]): CoreExpr
+  }
+  object CoreExpr {
+    import query.{ types => T }
+    case class TheValue(tpe: TypeSym) extends CoreExpr {
+      override def substitute(mapping: Map[Value, Value]) = this
+      override def toString = s"_: $tpe"
+    }
+    case class ValueRef(value: Value) extends CoreExpr {
+      override def tpe = value.tpe
+      override def substitute(mapping: Map[Value, Value]) =
+        mapping.get(value).map(ValueRef.apply) getOrElse this
+      override def toString = s"ref($value)"
     }
 
-    def exactInt(v: Int): Pred =
-      compile(Map("_" -> Lang.Expr.Op(Lang.Expr.TheValue, "==", Lang.Expr.LitInt(v))), query.types.int, ???)
+    case class INT_Lit(value: Int) extends CoreExpr {
+      override def tpe = T.int
+      override def substitute(mapping: Map[Value, Value]) = this
+      override def toString = value.toString
+    }
+    case class INT_GT(lhs: CoreExpr, rhs: CoreExpr) extends CoreExpr {
+      override def tpe = T.int
+      override def substitute(mapping: Map[Value, Value]) =
+        INT_GT(lhs.substitute(mapping), rhs.substitute(mapping))
+      override def toString = s"$lhs > $rhs"
+    }
+    case class INT_EQ(lhs: CoreExpr, rhs: CoreExpr) extends CoreExpr {
+      override def tpe = T.boolean
+      override def substitute(mapping: Map[Value, Value]) =
+        INT_GT(lhs.substitute(mapping), rhs.substitute(mapping))
+      override def toString = s"$lhs == $rhs"
+    }
+    case class BOOL_Lit(value: Boolean) extends CoreExpr {
+      override def tpe = T.boolean
+      override def substitute(mapping: Map[Value, Value]) = this
+      override def toString = value.toString
+    }
   }
+
   sealed abstract class PredHolder {
     def pred(binding: Map[Value, Pred]): Pred
     def toValue: Option[Value]

@@ -10,6 +10,7 @@ trait Universe extends AnyRef
   with ValueRepos
   with ASTs
   with Preds
+  with Envs
   with Props
   with Graphs
   with Templates
@@ -109,7 +110,7 @@ trait Universe extends AnyRef
     case AST.IntLiteral(value, lit) =>
       Graph.bind(
         value,
-        Pred.exactInt(1))
+        Pred.exactInt(value, 1))
 
     case AST.UnitLiteral(value) =>
       Graph.bind(value, Pred.True)

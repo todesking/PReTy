@@ -34,8 +34,11 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
           }
       }
     }
-    override def emptyPos = scala.reflect.internal.util.NoPosition
+
+    override val emptyPos = scala.reflect.internal.util.NoPosition
+
     override def <:<(lhs: TypeSym, rhs: TypeSym) = lhs <:< rhs
+
     override val types = new TypesAPI {
       private[this] def get(name: String) = global.rootMirror.getRequiredClass(name).tpe
       override val nothing = get("scala.Nothing")
