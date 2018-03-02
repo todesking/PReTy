@@ -1,6 +1,6 @@
 package com.todesking.prety.universe
 
-trait Templates { self: Preds with Graphs with Values =>
+trait Templates { self: Preds with Graphs with Values with UnknownPreds =>
   case class Template(
     self: Value,
     ret: Value,

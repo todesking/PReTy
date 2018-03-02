@@ -1,6 +1,6 @@
 package com.todesking.prety.universe
 
-trait Graphs { self: Values with Preds with Constraints =>
+trait Graphs { self: Values with Preds with Constraints with UnknownPreds =>
   class Graph(
     val constraints: Seq[Constraint],
     val binding: Map[Value, Pred]) {
@@ -51,7 +51,7 @@ trait Graphs { self: Values with Preds with Constraints =>
         unassignedValues
           .filterNot(hasUnassignedIncomingEdge)
           .foldLeft(binding) { (b, v) =>
-            val p = Pred.and(incomingEdges(v).map(_.lhs).map(_.pred(b)).toSeq)
+            val p = Pred.and(incomingEdges(v).map(_.lhs).map(_.reveal(b)).toSeq)
             b + (v -> p)
           }
       new Graph(constraints, newBinding)

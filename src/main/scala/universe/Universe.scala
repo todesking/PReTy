@@ -10,6 +10,7 @@ trait Universe extends AnyRef
   with ValueRepos
   with ASTs
   with Preds
+  with UnknownPreds
   with Envs
   with Exprs
   with Props
