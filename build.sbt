@@ -3,7 +3,7 @@ scalaVersion := "2.12.4"
 libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.6"
 libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value
 
-libraryDependencies += "de.uni-freiburg.informatik.ultimate" % "smtinterpol" % "2.5"
+libraryDependencies += "org.sosy-lab" % "java-smt" % "1.0.1"
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.4" % "test"
 
