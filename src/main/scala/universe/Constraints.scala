@@ -1,6 +1,6 @@
 package com.todesking.prety.universe
 
-trait Constraints { self: Values with UnknownPreds with Preds =>
+trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with UnknownPreds with Preds =>
   // represents lhs <= rhs
   sealed abstract class Constraint {
     def lhs: UnknownPred
@@ -27,6 +27,7 @@ trait Constraints { self: Values with UnknownPreds with Preds =>
   }
 
   case class GroundConstraint(constraint: Constraint, lhs: Pred, rhs: Pred) {
+    require(lhs.tpe <:< rhs.tpe)
     override def toString = constraint match {
       case Constraint.FocusLeft(l, r) =>
         s"$lhs *<= $rhs"

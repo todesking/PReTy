@@ -1,8 +1,8 @@
 package com.todesking.prety.universe
 
-import com.todesking.prety.Lang
+import com.todesking.prety.{ Lang, Logic }
 
-trait Preds { self: ForeignTypes with Queries with Values with Props with Envs with Exprs =>
+trait Preds { self: ForeignTypes with ForeignTypeOps with Queries with Values with Props with Envs with Exprs with Conflicts =>
   abstract class Pred {
     def tpe: TypeSym
 
@@ -20,6 +20,11 @@ trait Preds { self: ForeignTypes with Queries with Values with Props with Envs w
     def substitute(mapping: Map[Value, Value]): Pred
 
     def &(rhs: Pred): Pred
+
+    def upcast(newType: TypeSym): Pred = {
+      require(tpe <:< newType)
+      Pred(newType, definedProps.filterKeys { k => newType <:< k.targetType })
+    }
   }
 
   object Pred {
@@ -27,7 +32,7 @@ trait Preds { self: ForeignTypes with Queries with Values with Props with Envs w
       ps.reduceOption(_ & _) getOrElse True
 
     def apply(targetType: TypeSym, ppreds: Map[PropKey, PropPred]): Pred = {
-      // TODO: check prop key type
+      require(ppreds.keys.forall(_.targetType <:< targetType))
       new Pred {
         override def tpe = targetType
         override def prop(key: PropKey) = ppreds.get(key) getOrElse PropPred.True
@@ -71,7 +76,7 @@ trait Preds { self: ForeignTypes with Queries with Values with Props with Envs w
   trait World {
     val tpe: TypeSym
     def buildPred(expr: Expr): PropPred
-    // def compileLogic(lhs, rhs): (Logic, Conflict)
+    def solveConstraint(lhs: PropPred, rhs: PropPred): (Seq[Logic], Seq[Conflict])
   }
 
   object Compiler {
@@ -99,6 +104,14 @@ trait Preds { self: ForeignTypes with Queries with Values with Props with Envs w
     override def buildPred(expr: Expr): CorePred = expr match {
       case e: CoreExpr => CorePred(e)
     }
+
+    override def solveConstraint(lhs: PropPred, rhs: PropPred) = (lhs, rhs) match {
+      case (CorePred(l), CorePred(r)) =>
+        (Seq(toLogic(l) --> toLogic(r)), Seq())
+    }
+
+    private[this] val E = CoreExpr
+    private[this] def toLogic(e: CoreExpr): Logic = ???
   }
 
   case class CorePred(expr: CoreExpr) extends PropPred {
