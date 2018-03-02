@@ -47,6 +47,10 @@ trait Solvers { self: ForeignTypes with Graphs with Constraints with Conflicts w
       }
     }
 
-    private[this] def runSMT(l: Seq[Logic]): Seq[Conflict] = ???
+    private[this] def runSMT(l: Seq[Logic]): Seq[Conflict] = {
+      println("SMT Logic:")
+      println(l.map { x => "  " + x.toString }.mkString("\n"))
+      Seq()
+    }
   }
 }

@@ -55,7 +55,13 @@ trait Worlds { self: ForeignTypes with ForeignTypeOps with Queries with Values w
       else if (tpe <:< T.boolean) Logic.TBool
       else throw new RuntimeException(s"Theres no type $tpe in Logic")
 
-    private[this] def valueInLogic(v: Value): Logic.Var = ???
+    private[this] var vil = Map.empty[Value, Logic.Var]
+    private[this] def valueInLogic(v: Value): Logic.Var =
+      vil.get(v) getOrElse {
+        val lv = freshVar(v.tpe)
+        vil = vil + (v -> lv)
+        lv
+      }
   }
 
 }

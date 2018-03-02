@@ -21,12 +21,24 @@ object Logic {
   case object TInt extends Type
   case object TBool extends Type
   case object TString extends Type
-  case class TTuple(elms: Seq[Type]) extends Type
 
-  case class Var(id: Int, tpe: Type) extends Logic
+  case class Var(id: Int, tpe: Type) extends Logic {
+    override def toString = {
+      val t = tpe match {
+        case TInt => "i"
+        case TBool => "b"
+        case TString => "s"
+      }
+      s"${t}_$id"
+    }
+  }
 
-  case class IntValue(value: Int) extends Logic
-  case class BoolValue(value: Boolean) extends Logic
+  case class IntValue(value: Int) extends Logic {
+    override def toString = value.toString
+  }
+  case class BoolValue(value: Boolean) extends Logic {
+    override def toString = value.toString
+  }
   case class StringValue(value: String) extends Logic
 
   val True = BoolValue(true)
@@ -34,10 +46,14 @@ object Logic {
 
   case class App(fun: String, args: Seq[Logic]) extends Logic
 
-  case class Eq(lhs: Logic, rhs: Logic) extends Logic
+  case class Eq(lhs: Logic, rhs: Logic) extends Logic {
+    override def toString = s"$lhs == $rhs"
+  }
   case class Lt(lhs: Logic, rhs: Logic) extends Logic
   case class Le(lhs: Logic, rhs: Logic) extends Logic
-  case class Gt(lhs: Logic, rhs: Logic) extends Logic
+  case class Gt(lhs: Logic, rhs: Logic) extends Logic {
+    override def toString = s"$lhs > $rhs"
+  }
   case class Ge(lhs: Logic, rhs: Logic) extends Logic
 
   case class Neg(expr: Logic) extends Logic
@@ -47,5 +63,7 @@ object Logic {
   case class Not(expr: Logic) extends Logic
   case class And(exprs: Seq[Logic]) extends Logic
   case class Or(exprs: Seq[Logic]) extends Logic
-  case class Implie(lhs: Logic, rhs: Logic) extends Logic
+  case class Implie(lhs: Logic, rhs: Logic) extends Logic {
+    override def toString = s"{ $lhs }-->{ $rhs }"
+  }
 }
