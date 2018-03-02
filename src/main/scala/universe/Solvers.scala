@@ -2,7 +2,7 @@ package com.todesking.prety.universe
 
 import com.todesking.prety.Logic
 
-trait Solvers { self: ForeignTypes with Graphs with Constraints with Conflicts with Preds with Envs with Props =>
+trait Solvers { self: ForeignTypes with Graphs with Constraints with Conflicts with Preds with Envs with Preds with Props with Worlds =>
   object Solver {
     def solve(g: Graph): Seq[Conflict] = {
       val (nontrivials, trivialConflicts) = solveTrivial(g.groundConstraints)

@@ -1,9 +1,29 @@
 package com.todesking.prety.universe
 
-trait Exprs { self: ForeignTypes with Queries with Values =>
+import com.todesking.prety.Lang
+
+trait Exprs { self: ForeignTypes with Queries with Values with Envs =>
   abstract class Expr {
     def tpe: TypeSym
     def substitute(mapping: Map[Value, Value]): Expr
+  }
+  object Expr {
+    import Lang.{ Expr => E }
+    val CE = CoreExpr
+    def compile(ast: Lang.Expr, env: Env): Expr = ast match {
+      case E.TheValue =>
+        CE.TheValue(env.theValue.tpe)
+      case E.Ident(name) =>
+        CE.ValueRef(env.findValue(name))
+      case E.Select(expr, name) =>
+        ???
+      case E.LitInt(value) =>
+        CE.INT_Lit(value)
+      case E.Op(lhs, op, rhs) =>
+        val l = compile(lhs, env)
+        val r = compile(rhs, env)
+        env.findOp(l.tpe, op).apply(l, r)
+    }
   }
   sealed abstract class CoreExpr extends Expr {
     override def substitute(mapping: Map[Value, Value]): CoreExpr

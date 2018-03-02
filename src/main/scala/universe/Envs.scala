@@ -1,6 +1,6 @@
 package com.todesking.prety.universe
 
-trait Envs { self: ForeignTypes with ForeignTypeOps with Queries with Values with Props with Preds with Exprs =>
+trait Envs { self: ForeignTypes with ForeignTypeOps with Queries with Values with Props with Preds with Exprs with Worlds =>
   private[this] def nf(kind: String, key: String) = throw new RuntimeException(s"$kind $key not found")
 
   class Env(

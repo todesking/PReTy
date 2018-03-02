@@ -1,8 +1,8 @@
 package com.todesking.prety.universe
 
-import com.todesking.prety.{ Lang, Logic }
+import com.todesking.prety.{ Lang }
 
-trait Preds { self: ForeignTypes with ForeignTypeOps with Queries with Values with Props with Envs with Exprs with Conflicts =>
+trait Preds { self: ForeignTypes with ForeignTypeOps with Queries with Values with Props with Envs with Exprs with Conflicts with Worlds =>
   abstract class Pred {
     def tpe: TypeSym
 
@@ -16,7 +16,6 @@ trait Preds { self: ForeignTypes with ForeignTypeOps with Queries with Values wi
     // where this.tpe <:< tpe
     // where _.tpe <:< tpe
     // def as(tpe: TypeSym): Pred
-
     def substitute(mapping: Map[Value, Value]): Pred
 
     def &(rhs: Pred): Pred
@@ -59,7 +58,7 @@ trait Preds { self: ForeignTypes with ForeignTypeOps with Queries with Values wi
           case (name, expr) =>
             val key = env.findProp(name, targetType)
             key -> env.findWorld(key.tpe).buildPred(
-              Compiler.compile(expr, env))
+              Expr.compile(expr, env))
         })
 
     def exactInt(value: Value, v: Int): Pred =
@@ -71,47 +70,6 @@ trait Preds { self: ForeignTypes with ForeignTypeOps with Queries with Values wi
   }
   object PropPred {
     val True = CorePred(CoreExpr.BOOL_Lit(true))
-  }
-
-  trait World {
-    val tpe: TypeSym
-    def buildPred(expr: Expr): PropPred
-    def solveConstraint(lhs: PropPred, rhs: PropPred): (Seq[Logic], Seq[Conflict])
-  }
-
-  object Compiler {
-    import Lang.{ Expr => E }
-    val CE = CoreExpr
-    def compile(ast: Lang.Expr, env: Env): Expr = ast match {
-      case E.TheValue =>
-        CE.TheValue(env.theValue.tpe)
-      case E.Ident(name) =>
-        CE.ValueRef(env.findValue(name))
-      case E.Select(expr, name) =>
-        ???
-      case E.LitInt(value) =>
-        CE.INT_Lit(value)
-      case E.Op(lhs, op, rhs) =>
-        val l = compile(lhs, env)
-        val r = compile(rhs, env)
-        env.findOp(l.tpe, op).apply(l, r)
-    }
-  }
-
-  class IntWorld extends World {
-    override val tpe = query.types.int
-
-    override def buildPred(expr: Expr): CorePred = expr match {
-      case e: CoreExpr => CorePred(e)
-    }
-
-    override def solveConstraint(lhs: PropPred, rhs: PropPred) = (lhs, rhs) match {
-      case (CorePred(l), CorePred(r)) =>
-        (Seq(toLogic(l) --> toLogic(r)), Seq())
-    }
-
-    private[this] val E = CoreExpr
-    private[this] def toLogic(e: CoreExpr): Logic = ???
   }
 
   case class CorePred(expr: CoreExpr) extends PropPred {
