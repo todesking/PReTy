@@ -1,6 +1,6 @@
 package com.todesking.prety.universe
 
-trait Envs { self: ForeignTypes with ForeignTypeOps with Queries with Values with Props with Preds =>
+trait Envs { self: ForeignTypes with ForeignTypeOps with Queries with Values with Props with Preds with Exprs =>
   class Env(
     val props: Map[String, PropKey],
     val values: Map[String, Value],

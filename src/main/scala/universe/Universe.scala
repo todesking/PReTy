@@ -11,6 +11,7 @@ trait Universe extends AnyRef
   with ASTs
   with Preds
   with Envs
+  with Exprs
   with Props
   with Graphs
   with Templates
