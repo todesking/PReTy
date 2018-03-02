@@ -1,7 +1,7 @@
 package com.todesking.prety
 
 sealed abstract class Logic {
-  def ====(rhs: Logic) = Logic.Eq(this, rhs)
+  def ===(rhs: Logic) = Logic.Eq(this, rhs)
   def <=(rhs: Logic) = Logic.Le(this, rhs)
   def <(rhs: Logic) = Logic.Lt(this, rhs)
   def >=(rhs: Logic) = Logic.Ge(this, rhs)
@@ -22,6 +22,8 @@ object Logic {
   case object TBool extends Type
   case object TString extends Type
   case class TTuple(elms: Seq[Type]) extends Type
+
+  case class Var(id: Int, tpe: Type) extends Logic
 
   case class IntValue(value: Int) extends Logic
   case class BoolValue(value: Boolean) extends Logic
