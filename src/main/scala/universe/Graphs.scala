@@ -4,6 +4,14 @@ trait Graphs { self: Values with Preds with Constraints with UnknownPreds =>
   class Graph(
     val constraints: Seq[Constraint],
     val binding: Map[Value, Pred]) {
+
+    def pushEnv(): Graph = this
+    def popEnv(): Graph = this
+    def env(v: Value): Graph = this
+
+    def subtype(l: Value, r: UnknownPred): Graph =
+      new Graph(constraints :+ Constraint.FocusLeft(null, l, r), binding)
+
     def +(rhs: Graph) = {
       val conflicts = this.binding.keySet intersect rhs.binding.keySet
       if (conflicts.nonEmpty) {
@@ -14,13 +22,6 @@ trait Graphs { self: Values with Preds with Constraints with UnknownPreds =>
         binding ++ rhs.binding)
     }
 
-    def merge(rhs: Graph) = this + rhs
-    def merge(rhs: Seq[Graph]) = this + Graph.merge(rhs)
-
-    def constraint(c: Constraint) =
-      this + Graph.constraint(c)
-    def constraint(cs: Seq[Constraint]) =
-      this + Graph.constraint(cs)
     def bind(vps: Map[Value, Pred]) =
       this + Graph.bind(vps)
 
@@ -59,15 +60,6 @@ trait Graphs { self: Values with Preds with Constraints with UnknownPreds =>
   }
   object Graph {
     val empty: Graph = new Graph(Seq(), Map())
-
-    def merge(g: Graph): Graph =
-      g
-    def merge(gs: Seq[Graph]): Graph =
-      gs.foldLeft(empty) { (a, x) => a + x }
-    def constraint(c: Constraint): Graph =
-      new Graph(Seq(c), Map())
-    def constraint(cs: Seq[Constraint]): Graph =
-      new Graph(cs, Map())
     def bind(v: Value, p: Pred): Graph =
       new Graph(Seq(), Map(v -> p))
     def bind(vps: Map[Value, Pred]): Graph =

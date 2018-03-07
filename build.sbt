@@ -5,6 +5,9 @@ libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value
 
 libraryDependencies += "org.sosy-lab" % "java-smt" % "1.0.1"
 
+resolvers += "uuverifiers" at "http://logicrunch.it.uu.se:4096/~wv/maven/"
+libraryDependencies += "uuverifiers" %% "princess" % "2018-01-27"
+
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.4" % "test"
 
 scalacOptions ++= Seq(

@@ -10,6 +10,7 @@ trait Templates { self: Preds with Graphs with Values with UnknownPreds =>
       s"$self.(${argss.map(_.map(_.toString).mkString("(", ", ", ")")).mkString("")}) = $ret"
     // TODO: check acyclic
     def apply(
+      graph: Graph,
       aSelf: Value,
       aRet: Value,
       aArgss: Seq[Seq[Value]]): Graph = {
@@ -18,14 +19,13 @@ trait Templates { self: Preds with Graphs with Values with UnknownPreds =>
       val argSub = Map(self -> aSelf) ++
         argss.flatten.zip(aArgss.flatten).map { case (p, a) => p -> a }
 
-      Graph
-        .constraint(aSelf *<:= self)
-        .constraint(
-          argss.flatten.zip(aArgss.flatten).map {
-            case (p, a) =>
-              a *<:= p.substitute(argSub)
-          })
-        .constraint(aRet *<:= ret.substitute(argSub))
+      // TODO: tsort args
+      argss.flatten.zip(aArgss.flatten).foldLeft(
+        graph.pushEnv.subtype(aSelf, self).env(aSelf)) {
+          case (g, (p, a)) =>
+            g.subtype(a, p.substitute(argSub)).env(a)
+        }.subtype(aRet, ret.substitute(argSub))
+        .popEnv
     }
   }
 }

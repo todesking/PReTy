@@ -1,8 +1,12 @@
 package com.todesking.prety.universe
 
 trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with UnknownPreds with Preds =>
+  class PredEnv {
+  }
+
   // represents lhs <= rhs
   sealed abstract class Constraint {
+    def env: PredEnv
     def lhs: UnknownPred
     def rhs: UnknownPred
 
@@ -16,11 +20,11 @@ trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with Unkn
   object Constraint {
     // represents lhs <= rhs
     sealed abstract class LE extends Constraint
-    case class FocusLeft(lhs: UnknownPred.OfValue, rhs: UnknownPred) extends LE {
+    case class FocusLeft(env: PredEnv, lhs: UnknownPred.OfValue, rhs: UnknownPred) extends LE {
       override def toString = s"$lhs *<= $rhs"
       override def focus = lhs.value
     }
-    case class FocusRight(lhs: UnknownPred, rhs: UnknownPred.OfValue) extends LE {
+    case class FocusRight(env: PredEnv, lhs: UnknownPred, rhs: UnknownPred.OfValue) extends LE {
       override def toString = s"$lhs <=* $rhs"
       override def focus = rhs.value
     }
@@ -29,9 +33,9 @@ trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with Unkn
   case class GroundConstraint(constraint: Constraint, lhs: Pred, rhs: Pred) {
     require(lhs.tpe <:< rhs.tpe)
     override def toString = constraint match {
-      case Constraint.FocusLeft(l, r) =>
+      case Constraint.FocusLeft(e, l, r) =>
         s"$lhs *<= $rhs"
-      case Constraint.FocusRight(l, r) =>
+      case Constraint.FocusRight(e, l, r) =>
         s"$lhs <=* $rhs"
     }
     def focus: Value = constraint.focus
