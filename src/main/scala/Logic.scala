@@ -17,6 +17,7 @@ sealed abstract class Logic {
   def -->(rhs: Logic) = Logic.Implie(this, rhs)
 }
 object Logic {
+  // TODO: claeess per type
   sealed abstract class Type
   case object TInt extends Type
   case object TBool extends Type
@@ -46,6 +47,7 @@ object Logic {
 
   case class App(fun: String, args: Seq[Logic]) extends Logic
 
+  // TODO: INT_*
   case class Eq(lhs: Logic, rhs: Logic) extends Logic {
     override def toString = s"$lhs == $rhs"
   }
