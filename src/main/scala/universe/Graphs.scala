@@ -3,14 +3,19 @@ package com.todesking.prety.universe
 trait Graphs { self: Values with Preds with Constraints with UnknownPreds =>
   class Graph(
     val constraints: Seq[Constraint],
-    val binding: Map[Value, Pred]) {
+    val binding: Map[Value, Pred],
+    envStack: List[PredEnv],
+    currentEnv: PredEnv) {
 
-    def pushEnv(): Graph = this
-    def popEnv(): Graph = this
-    def env(v: Value): Graph = this
+    def pushEnv(): Graph =
+      new Graph(constraints, binding, currentEnv :: envStack, currentEnv)
+    def popEnv(): Graph =
+      new Graph(constraints, binding, envStack.tail, envStack.head)
+    def env(v: Value): Graph =
+      new Graph(constraints, binding, envStack, currentEnv.add(v))
 
     def subtype(l: Value, r: UnknownPred): Graph =
-      new Graph(constraints :+ Constraint.FocusLeft(null, l, r), binding)
+      new Graph(constraints :+ Constraint.FocusLeft(currentEnv, l, r), binding, envStack, currentEnv)
 
     def +(rhs: Graph) = {
       val conflicts = this.binding.keySet intersect rhs.binding.keySet
@@ -19,7 +24,9 @@ trait Graphs { self: Values with Preds with Constraints with UnknownPreds =>
       }
       new Graph(
         constraints ++ rhs.constraints,
-        binding ++ rhs.binding)
+        binding ++ rhs.binding,
+        envStack,
+        currentEnv)
     }
 
     def bind(vps: Map[Value, Pred]) =
@@ -55,14 +62,14 @@ trait Graphs { self: Values with Preds with Constraints with UnknownPreds =>
             val p = Pred.and(incomingEdges(v).map(_.lhs).map(_.reveal(b)).toSeq)
             b + (v -> p)
           }
-      new Graph(constraints, newBinding)
+      new Graph(constraints, newBinding, envStack, currentEnv)
     }
   }
   object Graph {
-    val empty: Graph = new Graph(Seq(), Map())
+    val empty: Graph = new Graph(Seq(), Map(), Nil, new PredEnv(Set()))
     def bind(v: Value, p: Pred): Graph =
-      new Graph(Seq(), Map(v -> p))
+      new Graph(Seq(), Map(v -> p), Nil, new PredEnv(Set()))
     def bind(vps: Map[Value, Pred]): Graph =
-      new Graph(Seq(), vps)
+      new Graph(Seq(), vps, Nil, new PredEnv(Set()))
   }
 }

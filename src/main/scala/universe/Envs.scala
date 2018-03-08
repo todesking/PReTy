@@ -26,7 +26,7 @@ trait Envs { self: ForeignTypes with ForeignTypeOps with Queries with Values wit
 
     def findProp(name: String, targetType: TypeSym): PropKey = name match {
       case "_" =>
-        PropKey("_", targetType, targetType)
+        findWorld(targetType).selfPropKey
       case name =>
         props.get(name) getOrElse nf("Property", name)
     }

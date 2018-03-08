@@ -1,7 +1,10 @@
 package com.todesking.prety.universe
 
 trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with UnknownPreds with Preds =>
-  class PredEnv {
+  case class PredEnv(values: Set[Value]) {
+    // TODO: add path condition
+    def add(v: Value): PredEnv =
+      PredEnv(values + v)
   }
 
   // represents lhs <= rhs
@@ -39,5 +42,6 @@ trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with Unkn
         s"$lhs <=* $rhs"
     }
     def focus: Value = constraint.focus
+    def env = constraint.env
   }
 }

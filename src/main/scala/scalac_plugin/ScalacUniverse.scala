@@ -16,7 +16,7 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
     global.reporter.error(pos, msg)
   }
 
-  override val query = new QueryAPI {
+  override lazy val query = new QueryAPI {
     override def name(f: DefSym) = f.name.toString
     override def paramss(f: DefSym): Seq[Seq[DefSym]] = f.paramLists.map(_.map(_.asTerm))
     override def returnType(f: DefSym): TypeSym =

@@ -12,7 +12,10 @@ sealed abstract class Logic {
   def unary_- = Logic.Neg(this)
 
   def unary_! = Logic.Not(this)
-  def &(rhs: Logic) = Logic.And(Seq(this, rhs))
+  def &(rhs: Logic) = rhs match {
+    case Logic.True => this
+    case x => Logic.And(Seq(this, x))
+  }
   def |(rhs: Logic) = Logic.Or(Seq(this, rhs))
   def -->(rhs: Logic) = Logic.Implie(this, rhs)
 }
@@ -39,6 +42,16 @@ object Logic {
   }
   case class BoolValue(value: Boolean) extends Logic {
     override def toString = value.toString
+    override def &(rhs: Logic) =
+      if (value) rhs
+      else this
+
+    def unapply(l: Logic): Option[BoolValue] = l match {
+      case BoolValue(v) if v == value =>
+        Some(this)
+      case _ =>
+        None
+    }
   }
   case class StringValue(value: String) extends Logic
 
@@ -63,7 +76,9 @@ object Logic {
   case class Minus(lhs: Logic, rhs: Logic) extends Logic
 
   case class Not(expr: Logic) extends Logic
-  case class And(exprs: Seq[Logic]) extends Logic
+  case class And(exprs: Seq[Logic]) extends Logic {
+    override def toString = exprs.mkString("(", " & ", ")")
+  }
   case class Or(exprs: Seq[Logic]) extends Logic
   case class Implie(lhs: Logic, rhs: Logic) extends Logic {
     override def toString = s"{ $lhs }-->{ $rhs }"

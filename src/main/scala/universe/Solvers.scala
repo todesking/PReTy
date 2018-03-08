@@ -2,11 +2,11 @@ package com.todesking.prety.universe
 
 import com.todesking.prety.Logic
 
-trait Solvers { self: ForeignTypes with Graphs with Constraints with Conflicts with Preds with Envs with Preds with Props with Worlds =>
+trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with Conflicts with Preds with Envs with Preds with Props with Worlds =>
   object Solver {
     def solve(g: Graph): Seq[Conflict] = {
       val (nontrivials, trivialConflicts) = solveTrivial(g.groundConstraints)
-      val nontrivialConflicts = solveSMT(nontrivials)
+      val nontrivialConflicts = solveSMT(nontrivials, g.binding)
       trivialConflicts ++ nontrivialConflicts
     }
     def solveTrivial(cs: Seq[GroundConstraint]): (Seq[GroundConstraint], Seq[Conflict]) = {
@@ -26,11 +26,11 @@ trait Solvers { self: ForeignTypes with Graphs with Constraints with Conflicts w
 
     def simplify(p: Pred): Pred = p
 
-    def solveSMT(constraints: Seq[GroundConstraint]): Seq[Conflict] = {
+    def solveSMT(constraints: Seq[GroundConstraint], binding: Map[Value, Pred]): Seq[Conflict] = {
       val (ls, cs) = constraints.flatMap { c =>
         propConstraints(c).map {
           case (t, l, r) =>
-            globalEnv.findWorld(t).solveConstraint(l, r)
+            globalEnv.findWorld(t).solveConstraint(c.env, binding, l, r)
         }
       }.foldLeft((Seq.empty[Logic], Seq.empty[Conflict])) {
         case ((al, ac), (l, c)) =>
@@ -73,11 +73,11 @@ trait Solvers { self: ForeignTypes with Graphs with Constraints with Conflicts w
           smtI(l) > smtI(r)
         case Logic.Implie(l, r) =>
           smtB(l) --> smtB(r)
+        case Logic.And(conds) =>
+          ctx.getFormulaManager.getBooleanFormulaManager.and(conds.map { c => smtB(c) }: _*)
         case unk =>
           throw new RuntimeException(s"SMT-B: $unk")
       }
-      import org.sosy_lab.java_smt.api.SolverContext.ProverOptions
-
       def fvars(l: Logic): Set[Logic.Var] = l match {
         case Logic.Eq(l, r) =>
           fvars(l) ++ fvars(r)
@@ -91,7 +91,7 @@ trait Solvers { self: ForeignTypes with Graphs with Constraints with Conflicts w
           Set()
       }
 
-      withResource(ctx.newProverEnvironment(ProverOptions.GENERATE_UNSAT_CORE)) { prover =>
+      withResource(ctx.newProverEnvironment()) { prover =>
         println("Compiled SMT:")
         logics.foreach { l =>
           val fvs = fvars(l)
@@ -105,12 +105,12 @@ trait Solvers { self: ForeignTypes with Graphs with Constraints with Conflicts w
                   ctx.getFormulaManager.getIntegerFormulaManager.makeVariable(v.toString)
               }.asJava,
               smt)
-          prover.addConstraint(quantified)
-        }
-        val unsat = prover.isUnsat()
-        println(unsat)
-        if (unsat) {
-          println(prover.getUnsatCore())
+          prover.push(quantified)
+          val unsat = prover.isUnsat()
+          prover.pop()
+          if (unsat) {
+            println(s"Unsat: $l; $quantified")
+          }
         }
       }
       SMT.shutdown.requestShutdown("die")
@@ -137,7 +137,7 @@ trait Solvers { self: ForeignTypes with Graphs with Constraints with Conflicts w
         config,
         logger,
         shutdown.getNotifier(),
-        SolverContextFactory.Solvers.SMTINTERPOL)
+        SolverContextFactory.Solvers.PRINCESS)
     }
     object SMTSyntax {
       import org.sosy_lab.java_smt.api.SolverContext
