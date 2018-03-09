@@ -27,7 +27,7 @@ trait ValueRepos { self: ForeignTypes with Queries with Values =>
       positions.get(v)
 
     def setPos(v: Value, p: Pos): Unit =
-      if (positions.contains(v)) throw new RuntimeException(s"Pos registered twice")
+      if (positions.get(v).map(query.samePos(_, p)) getOrElse false) throw new RuntimeException(s"Pos registered twice")
       else positions = positions + (v -> p)
 
     def newExpr(name: String, pos: Pos, tpe: TypeSym): Value =

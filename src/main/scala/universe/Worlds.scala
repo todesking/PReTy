@@ -37,7 +37,7 @@ trait Worlds { self: ForeignTypes with Envs with ForeignTypeOps with Constraints
   class IntWorld extends World {
     override val tpe = query.types.int
 
-    override def selfPropKey = PropKey("self[Int]", tpe, tpe)
+    override def selfPropKey = PropKey("_", tpe, tpe)
 
     override def buildPred(expr: Expr): CorePred = expr match {
       case e: CoreExpr => CorePred(e)
@@ -75,6 +75,8 @@ trait Worlds { self: ForeignTypes with Envs with ForeignTypeOps with Constraints
         Logic.IntValue(x)
       case E.INT_GT(l, r) =>
         compile(l, theValue) > compile(r, theValue)
+      case E.INT_LT(l, r) =>
+        compile(l, theValue) < compile(r, theValue)
       case E.INT_EQ(l, r) =>
         compile(l, theValue) === compile(r, theValue)
       case E.BOOL_Lit(v) =>

@@ -39,7 +39,7 @@ trait Preds { self: ForeignTypes with ForeignTypeOps with Queries with Values wi
         override def substitute(mapping: Map[Value, Value]) = apply(targetType, ppreds.mapValues(_.substitute(mapping)))
         override def &(rhs: Pred) = ???
         override def toString =
-          definedProps.map { case (k, v) => s"$k: $v" }.mkString("{", ", ", "}")
+          definedProps.map { case (k, v) => s"${k.name}: $v" }.mkString("{", ", ", "}")
       }
     }
     case object True extends Pred {

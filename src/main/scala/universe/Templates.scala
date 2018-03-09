@@ -20,11 +20,14 @@ trait Templates { self: Preds with Graphs with Values with UnknownPreds =>
         argss.flatten.zip(aArgss.flatten).map { case (p, a) => p -> a }
 
       // TODO: tsort args
-      argss.flatten.zip(aArgss.flatten).foldLeft(
-        graph.pushEnv.subtype(aSelf, self).env(aSelf)) {
-          case (g, (p, a)) =>
-            g.subtype(a, p.substitute(argSub)).env(a)
-        }.subtype(aRet, ret.substitute(argSub))
+      argss.flatten.zip(aArgss.flatten).foldLeft {
+        graph.pushEnv
+          .subtype(aSelf, self)
+          .env(aSelf)
+      } {
+        case (g, (p, a)) =>
+          g.subtype(a, p.substitute(argSub)).env(a)
+      }.alias(aRet, ret.substitute(argSub))
         .popEnv
     }
   }

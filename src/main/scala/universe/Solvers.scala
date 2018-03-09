@@ -80,6 +80,8 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
           smtI(l) === smtI(r)
         case Logic.Gt(l, r) =>
           smtI(l) > smtI(r)
+        case Logic.Lt(l, r) =>
+          smtI(l) < smtI(r)
         case Logic.Implie(l, r) =>
           smtB(l) --> smtB(r)
         case Logic.And(conds) =>
@@ -181,6 +183,7 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
         private[this] def ifm = ctx.getFormulaManager.getIntegerFormulaManager
         def +(rhs: IntegerFormula) = ifm.add(self, rhs)
         def >(rhs: IntegerFormula) = ifm.greaterThan(self, rhs)
+        def <(rhs: IntegerFormula) = ifm.lessThan(self, rhs)
         def ===(rhs: IntegerFormula) = ifm.equal(self, rhs)
       }
 

@@ -42,7 +42,7 @@ trait Envs { self: ForeignTypes with ForeignTypeOps with Queries with Values wit
           }
           case "<" => {
             case (l: CoreExpr, r: CoreExpr) if l.tpe <:< T.int && r.tpe <:< T.int =>
-              CoreExpr.INT_GT(r, l)
+              CoreExpr.INT_LT(l, r)
           }
           case "==" => {
             case (l: CoreExpr, r: CoreExpr) if l.tpe <:< T.int && r.tpe <:< T.int =>

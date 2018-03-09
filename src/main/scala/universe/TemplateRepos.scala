@@ -17,9 +17,13 @@ trait TemplateRepos { self: ForeignTypes with Queries with Values with ValueRepo
     private[this] var templates = Map.empty[DefSym, Template]
 
     private[this] def freshTemplate(f: DefSym): Template = {
-      val srcs = query.refinementSrc(f)
-      val defs = Lang.parse(srcs)
-      buildTemplate(f, defs)
+      if (query.isAccessor(f)) {
+        get(query.unwrapAccessor(f))
+      } else {
+        val srcs = query.refinementSrc(f)
+        val defs = Lang.parse(srcs)
+        buildTemplate(f, defs)
+      }
     }
 
     private[this] def buildTemplate(f: DefSym, preds: Map[String, Lang.Def]): Template = {
@@ -37,12 +41,17 @@ trait TemplateRepos { self: ForeignTypes with Queries with Values with ValueRepo
 
       val env: Env = buildEnv(values, ret)
 
-      val bindings = preds
-        .map {
-          case (k, v) =>
-            val target = if (k == "_") ret else env.findValue(k)
-            val pred = Pred.compile(v.props, target.tpe, env)
-            target -> pred
+      val bindings =
+        if (query.isLocal(f) && preds.isEmpty) {
+          Map.empty[Value, Pred]
+        } else {
+          values.values.map { v => v -> Pred.True }.toMap ++ preds
+            .map {
+              case (k, v) =>
+                val target = if (k == "_") ret else env.findValue(k)
+                val pred = Pred.compile(v.props, target.tpe, env)
+                target -> pred
+            }
         }
       Template(self, ret, paramss, bindings)
     }

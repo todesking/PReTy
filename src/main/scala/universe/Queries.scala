@@ -9,7 +9,15 @@ trait Queries { self: ForeignTypes =>
     def thisType(f: DefSym): TypeSym
     def refinementSrc(f: DefSym): Seq[String]
 
+    def isAccessor(f: DefSym): Boolean
+    def unwrapAccessor(f: DefSym): DefSym
+
+    def isLocal(f: DefSym): Boolean
+
     val emptyPos: Pos
+    def lineNum(p: Pos): Int
+    def columnNum(p: Pos): Int
+    def samePos(l: Pos, r: Pos): Boolean
 
     def <:<(lhs: TypeSym, rhs: TypeSym): Boolean
 

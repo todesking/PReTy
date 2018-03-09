@@ -8,6 +8,19 @@ import scala.reflect.io.AbstractFile
 class IntegrationTest extends FunSpec {
   init()
 
+  case class LocalPos(line: Int, col: Int) {
+    def tuple: (Int, Int) = (line, col)
+    override def toString = s"$line:$col"
+  }
+  object LocalPos {
+    def apply(p: scala.reflect.internal.util.Position): LocalPos =
+      LocalPos(p.focus.line, p.focus.column)
+    implicit val ord: Ordering[LocalPos] = new Ordering[LocalPos] {
+      override def compare(l: LocalPos, r: LocalPos) =
+        implicitly[Ordering[(Int, Int)]].compare(l.tuple, r.tuple)
+    }
+  }
+
   private[this] def init(): Unit = {
     val baseDir = new java.io.File(getClass.getResource("/integration-test").toURI).getPath
     println(s"baseDir=$baseDir")
@@ -39,17 +52,12 @@ class IntegrationTest extends FunSpec {
       pending
       return
     }
-    val (_, linesWithOffset) = content.split("\n")
-      .foldLeft(0 -> Seq.empty[(Int, String)]) {
-        case ((off, ls), line) =>
-          (off + line.length + 1) -> (ls :+ (off -> line))
-      }
     val markerPat = """\s*//\s*\^\s*(.*)""".r
-    val expectedErrors: Seq[(Int, String)] = linesWithOffset.zip(linesWithOffset.drop(1)).collect {
-      case ((off, l0), (_, l1 @ markerPat(msg))) =>
-        val posInLine = l1.indexOf("^")
-        assert(posInLine >= 0)
-        (off + posInLine) -> msg.replaceAll("\\\\n", "\n")
+    val expectedErrors: Seq[(LocalPos, String)] = content.split("\n").zipWithIndex.collect {
+      case (l @ markerPat(msg), lnum) =>
+        val col = l.indexOf("^")
+        assert(col >= 0)
+        LocalPos(lnum + 1 - 1, col + 1) -> msg.replaceAll("\\\\n", "\n")
     }
 
     val result = Compiler.compile(f.path)
@@ -57,16 +65,21 @@ class IntegrationTest extends FunSpec {
     assert(result.warnings == Seq())
 
     val eErrors = expectedErrors.toSet
-    val errors = result.errors.map { e => (if (e.pos.isDefined) e.pos.point else -1) -> e.message }.toSet
+    val errors = result.errors.map { e => (LocalPos(e.pos)) -> e.message }.toSet
 
-    val nothappens = (eErrors -- errors).toSeq.sortBy(_._1)
-    val unexpecteds = (errors -- eErrors).toSeq.sortBy(_._1)
+    val nothappenedErrors = (eErrors -- errors).toSeq.sortBy(_._1)
+    val happendErrors = (errors intersect eErrors).toSeq.sortBy(_._1)
+    val unexpectedErrors = (errors -- eErrors).toSeq.sortBy(_._1)
 
-    nothappens.foreach {
+    happendErrors.foreach {
       case (pos, msg) =>
-        println(s"Error expected but not happens: $pos, $msg")
+        println(s"Expected Error: $pos, $msg")
     }
-    unexpecteds.foreach {
+    nothappenedErrors.foreach {
+      case (pos, msg) =>
+        println(s"Error expected but not happend: $pos, $msg")
+    }
+    unexpectedErrors.foreach {
       case (pos, msg) =>
         println(s"Unexpected Error: $pos, $msg")
     }

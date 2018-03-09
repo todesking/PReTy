@@ -52,6 +52,12 @@ trait Exprs { self: ForeignTypes with Queries with Values with Envs =>
         INT_GT(lhs.substitute(mapping), rhs.substitute(mapping))
       override def toString = s"$lhs > $rhs"
     }
+    case class INT_LT(lhs: CoreExpr, rhs: CoreExpr) extends CoreExpr {
+      override def tpe = T.int
+      override def substitute(mapping: Map[Value, Value]) =
+        INT_LT(lhs.substitute(mapping), rhs.substitute(mapping))
+      override def toString = s"$lhs < $rhs"
+    }
     case class INT_EQ(lhs: CoreExpr, rhs: CoreExpr) extends CoreExpr {
       override def tpe = T.boolean
       override def substitute(mapping: Map[Value, Value]) =

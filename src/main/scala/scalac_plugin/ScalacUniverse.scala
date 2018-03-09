@@ -35,7 +35,15 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
       }
     }
 
+    override def isAccessor(f: DefSym) = f.isAccessor
+    override def unwrapAccessor(f: DefSym) = f.accessed.asTerm
+
+    override def isLocal(f: DefSym) = f.isLocalToBlock
+
     override val emptyPos = scala.reflect.internal.util.NoPosition
+    override def lineNum(p: Pos) = p.focus.line
+    override def columnNum(p: Pos) = p.focus.column
+    override def samePos(l: Pos, r: Pos) = l == r
 
     override def <:<(lhs: TypeSym, rhs: TypeSym) = lhs <:< rhs
 
@@ -88,6 +96,9 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
             if (rhs.isEmpty) None else Some(parseExpr(rhs))))
       case vd @ ValDef(mods, name, tpt, rhs) =>
         val sym = vd.symbol.asTerm
+        val template = templateOf(sym)
+        valueRepo.setPos(template.self, t.pos)
+        valueRepo.setPos(template.ret, t.pos)
         Seq(AST.ValDef(sym, sym.selfType, if (rhs.isEmpty) None else Some(parseExpr(rhs))))
       case other =>
         Seq(parseExpr(other))
@@ -102,7 +113,7 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
           parseExpr(expr))
       case Apply(fun, args) =>
         val (self, funSym, tpe) = parseFun(fun)
-        AST.Apply(self, funSym, tpe, valueRepo.newExpr(t.toString, t.pos, t.tpe), Seq(args.map(parseExpr)))
+        AST.Apply(self, funSym, tpe, valueRepo.newExpr("app:" + t.toString, t.pos, t.tpe), Seq(args.map(parseExpr)))
       case t @ This(qual) =>
         AST.This(t.tpe, valueRepo.newExpr(s"this", t.pos, t.tpe))
       case Literal(Constant(v)) =>
@@ -113,7 +124,7 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
       case sel @ Select(qual, name) =>
         val target = parseExpr(qual)
         val sym = sel.symbol.asTerm
-        AST.Apply(target, sym, sel.tpe, valueRepo.newExpr(sel.toString, t.pos, t.tpe), Seq())
+        AST.Apply(target, sym, sel.tpe, valueRepo.newExpr("sel:" + sel.toString, sel.pos, sel.tpe), Seq())
       case s @ Super(qual, mix) =>
         AST.Super(s.tpe, valueRepo.newExpr(s.toString, t.pos, t.tpe))
       case i @ Ident(name) =>
