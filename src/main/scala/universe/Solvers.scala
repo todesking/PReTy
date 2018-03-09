@@ -2,7 +2,7 @@ package com.todesking.prety.universe
 
 import com.todesking.prety.Logic
 
-trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with Conflicts with Preds with Envs with Preds with Props with Worlds =>
+trait Solvers { self: ForeignTypes with Queries with Values with Graphs with Constraints with Conflicts with Preds with Envs with Preds with Props with Worlds =>
   object Solver {
     def solve(g: Graph): Seq[Conflict] = {
       val (nontrivials, trivialConflicts) = solveTrivial(g.groundConstraints)
@@ -36,6 +36,8 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
       cs ++ runSMT(ls)
     }
 
+    private[this] def dprint(s: String) = if (query.isDebugMode) println(s)
+
     private[this] def compileConstraint(c: GroundConstraint, binding: Map[Value, Pred]): (LogicConstraint, Seq[Conflict]) = {
       val xs =
         propConstraints(c).map {
@@ -57,8 +59,8 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
     }
 
     private[this] def runSMT(constraints: Seq[LogicConstraint]): Seq[Conflict] = {
-      println("SMT Logic:")
-      println(constraints.map { x => "  " + x.toString }.mkString("\n"))
+      dprint("SMT Logic:")
+      dprint(constraints.map { x => "  " + x.toString }.mkString("\n"))
 
       implicit val ctx = SMT.newContext()
       import SMTSyntax._
@@ -104,11 +106,11 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
 
       val conflicts =
         withResource(ctx.newProverEnvironment()) { prover =>
-          println("Compiled SMT:")
+          dprint("Compiled SMT:")
           constraints.foreach { c =>
             val l = c.logic
             val fvs = fvars(l)
-            println(s"  forall ${fvs.mkString(", ")}. $l")
+            dprint(s"  forall ${fvs.mkString(", ")}. $l")
           }
 
           constraints.flatMap { c =>
@@ -127,7 +129,7 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
             val unsat = prover.isUnsat()
             prover.pop()
             if (unsat) {
-              println(s"Unsat: $l; $quantified")
+              dprint(s"Unsat: $l; $quantified")
               Some(Conflict(c.constraint))
             } else {
               None

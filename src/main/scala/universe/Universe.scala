@@ -27,6 +27,7 @@ trait Universe extends AnyRef
 
   private[this] def unk(t: AST): Nothing =
     throw new RuntimeException(s"Unknown AST: $t")
+  private[this] def dprint(s: String) = if (query.isDebugMode) println(s)
 
   def checkRefinements(root: Tree): Unit = {
     val ctos = toAST(root)
@@ -34,7 +35,7 @@ trait Universe extends AnyRef
   }
 
   def analyzeCTO(cto: AST.CTODef): Unit = {
-    println(s"Analyzing CTO: ${cto.pretty.toString(0)}")
+    dprint(s"Analyzing CTO: ${cto.pretty.toString(0)}")
     val graph = cto.impl.foldLeft(Graph.empty) { (g, i) => buildGraph(g, i, false) }
 
     def pos(v: Value) = valueRepo.getPos(v) match {
@@ -44,42 +45,42 @@ trait Universe extends AnyRef
         s"???"
     }
 
-    println(s"Aliases:")
+    dprint(s"Aliases:")
     graph.aliases.foreach {
       case (f, t) =>
-        println(s"  $f -> $t")
+        dprint(s"  $f -> $t")
     }
 
-    println(s"Initial binding:")
+    dprint(s"Initial binding:")
     graph.binding.toSeq.sortBy(_._1.id)
       .foreach {
         case (v, p) =>
-          println(f"${pos(v)}%-7s $v = $p")
+          dprint(f"${pos(v)}%-7s $v = $p")
       }
 
-    println("Constraints:")
-    println(graph.constraints.mkString("\n"))
+    dprint("Constraints:")
+    dprint(graph.constraints.mkString("\n"))
 
     val inferred = graph.infer()
-    println(s"Inferred binding:")
+    dprint(s"Inferred binding:")
     (inferred.binding.keySet -- graph.binding.keySet).toSeq
       .sortBy(_.id)
       .foreach {
         case v =>
-          println(f"${pos(v)}%-7s $v = ${inferred.binding(v)}")
+          dprint(f"${pos(v)}%-7s $v = ${inferred.binding(v)}")
       }
 
-    println("Unbound:")
+    dprint("Unbound:")
     (inferred.allValues -- inferred.binding.keySet).toSeq
       .sortBy(_.id)
       .foreach {
         case v =>
-          println(f"${pos(v)}%-7s $v")
+          dprint(f"${pos(v)}%-7s $v")
       }
 
     val conflicts = Solver.solve(inferred)
     conflicts.foreach { c =>
-      println(s"CONFLICT at ${pos(c.focus)}: ${c.message}")
+      dprint(s"CONFLICT at ${pos(c.focus)}: ${c.message}")
       val p = valueRepo.getPos(c.focus) getOrElse query.emptyPos
       reportError(p, c.message)
     }

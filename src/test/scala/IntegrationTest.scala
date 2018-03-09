@@ -52,6 +52,8 @@ class IntegrationTest extends FunSpec {
       pending
       return
     }
+    val debug = content.startsWith("// debugPrint")
+
     val markerPat = """\s*//\s*\^\s*(.*)""".r
     val expectedErrors: Seq[(LocalPos, String)] = content.split("\n").zipWithIndex.collect {
       case (l @ markerPat(msg), lnum) =>
@@ -60,28 +62,30 @@ class IntegrationTest extends FunSpec {
         LocalPos(lnum + 1 - 1, col + 1) -> msg.replaceAll("\\\\n", "\n")
     }
 
-    val result = Compiler.compile(f.path)
+    val result = Compiler.compile(f.path, debug)
     assert(result.infos == Seq())
     assert(result.warnings == Seq())
 
     val eErrors = expectedErrors.toSet
     val errors = result.errors.map { e => (LocalPos(e.pos)) -> e.message }.toSet
 
-    val nothappenedErrors = (eErrors -- errors).toSeq.sortBy(_._1)
-    val happendErrors = (errors intersect eErrors).toSeq.sortBy(_._1)
-    val unexpectedErrors = (errors -- eErrors).toSeq.sortBy(_._1)
+    if (debug) {
+      val nothappenedErrors = (eErrors -- errors).toSeq.sortBy(_._1)
+      val happendErrors = (errors intersect eErrors).toSeq.sortBy(_._1)
+      val unexpectedErrors = (errors -- eErrors).toSeq.sortBy(_._1)
 
-    happendErrors.foreach {
-      case (pos, msg) =>
-        println(s"Expected Error: $pos, $msg")
-    }
-    nothappenedErrors.foreach {
-      case (pos, msg) =>
-        println(s"Error expected but not happend: $pos, $msg")
-    }
-    unexpectedErrors.foreach {
-      case (pos, msg) =>
-        println(s"Unexpected Error: $pos, $msg")
+      happendErrors.foreach {
+        case (pos, msg) =>
+          println(s"Expected Error: $pos, $msg")
+      }
+      nothappenedErrors.foreach {
+        case (pos, msg) =>
+          println(s"Error expected but not happend: $pos, $msg")
+      }
+      unexpectedErrors.foreach {
+        case (pos, msg) =>
+          println(s"Unexpected Error: $pos, $msg")
+      }
     }
 
     assert(errors == eErrors)
@@ -103,7 +107,7 @@ object Compiler {
   case class Message(pos: Position, message: String)
   case class Result(infos: Seq[Message], warnings: Seq[Message], errors: Seq[Message])
 
-  def compile(path: String): Result = {
+  def compile(path: String, debug: Boolean): Result = {
     val file = AbstractFile.getFile(path)
     val sources = List(new BatchSourceFile(file))
 
@@ -116,7 +120,7 @@ object Compiler {
 
     val compiler = new Global(settings, reporter) {
       override protected def loadRoughPluginsList =
-        new PretyPlugin(this) :: super.loadRoughPluginsList
+        new PretyPlugin(this, debug) :: super.loadRoughPluginsList
     }
 
     new compiler.Run().compileSources(sources)

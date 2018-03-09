@@ -4,7 +4,7 @@ import scala.tools.nsc.Global
 
 import com.todesking.prety.universe.Universe
 
-class ScalacUniverse[G <: Global](val global: G) extends Universe {
+class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Universe {
   override type Tree = global.Tree
   override type Pos = global.Position
 
@@ -39,6 +39,8 @@ class ScalacUniverse[G <: Global](val global: G) extends Universe {
     override def unwrapAccessor(f: DefSym) = f.accessed.asTerm
 
     override def isLocal(f: DefSym) = f.isLocalToBlock
+
+    override val isDebugMode = debug
 
     override val emptyPos = scala.reflect.internal.util.NoPosition
     override def lineNum(p: Pos) = p.focus.line

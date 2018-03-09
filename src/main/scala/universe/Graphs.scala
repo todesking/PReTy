@@ -57,11 +57,6 @@ trait Graphs { self: Values with Preds with Constraints with UnknownPreds =>
 
     private[this] def fillAlias0(): Graph = {
       val filler = unassignedAliases.flatMap { from => aliases(from).revealOpt(binding).map(from -> _) }
-      println(s"Fill:")
-      filler.foreach {
-        case (k, v) =>
-          println(s"  $k: $v")
-      }
       copy(binding = binding ++ filler)
     }
 

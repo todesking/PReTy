@@ -14,6 +14,8 @@ trait Queries { self: ForeignTypes =>
 
     def isLocal(f: DefSym): Boolean
 
+    val isDebugMode: Boolean
+
     val emptyPos: Pos
     def lineNum(p: Pos): Int
     def columnNum(p: Pos): Int
