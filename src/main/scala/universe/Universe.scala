@@ -62,7 +62,7 @@ trait Universe extends AnyRef
     val conflicts = Solver.solve(inferred)
     conflicts.foreach { c =>
       val p = valueRepo.getPos(c.focus) getOrElse query.emptyPos
-      println(s"CONFLICT: ${c.focus}(pos: ${p != query.emptyPos}): ${c.message}")
+      println(s"CONFLICT at ${c.focus}: ${c.message}")
       reportError(p, c.message)
     }
   }
@@ -113,7 +113,7 @@ trait Universe extends AnyRef
 
     case AST.IntLiteral(value, lit) =>
       graph.bind(Map(
-        value -> Pred.exactInt(value, 1)))
+        value -> Pred.exactInt(value, lit)))
 
     case AST.UnitLiteral(value) =>
       graph.bind(Map(value -> Pred.True))

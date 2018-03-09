@@ -1,5 +1,7 @@
 package com.todesking.prety.universe
 
+import com.todesking.prety.Logic
+
 trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with UnknownPreds with Preds =>
   case class PredEnv(values: Set[Value]) {
     // TODO: add path condition
@@ -33,6 +35,7 @@ trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with Unkn
     }
   }
 
+  // TODO: s/Ground/Concrete
   case class GroundConstraint(constraint: Constraint, lhs: Pred, rhs: Pred) {
     require(lhs.tpe <:< rhs.tpe)
     override def toString = constraint match {
@@ -43,5 +46,9 @@ trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with Unkn
     }
     def focus: Value = constraint.focus
     def env = constraint.env
+  }
+
+  case class LogicConstraint(constraint: GroundConstraint, logic: Logic) {
+    override def toString = s"$constraint; $logic"
   }
 }

@@ -37,7 +37,7 @@ trait Worlds { self: ForeignTypes with Envs with ForeignTypeOps with Constraints
   class IntWorld extends World {
     override val tpe = query.types.int
 
-    override def selfPropKey = PropKey("self(Int)", tpe, tpe)
+    override def selfPropKey = PropKey("self[Int]", tpe, tpe)
 
     override def buildPred(expr: Expr): CorePred = expr match {
       case e: CoreExpr => CorePred(e)

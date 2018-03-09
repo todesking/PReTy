@@ -32,7 +32,7 @@ trait Exprs { self: ForeignTypes with Queries with Values with Envs =>
     import query.{ types => T }
     case class TheValue(tpe: TypeSym) extends CoreExpr {
       override def substitute(mapping: Map[Value, Value]) = this
-      override def toString = s"_: $tpe"
+      override def toString = s"_"
     }
     case class ValueRef(value: Value) extends CoreExpr {
       override def tpe = value.tpe

@@ -75,6 +75,7 @@ trait Preds { self: ForeignTypes with ForeignTypeOps with Queries with Values wi
   case class CorePred(expr: CoreExpr) extends PropPred {
     override def substitute(mapping: Map[Value, Value]): CorePred =
       CorePred(expr.substitute(mapping))
+    override def toString = expr.toString
   }
 
 }

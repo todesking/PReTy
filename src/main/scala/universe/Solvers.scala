@@ -27,17 +27,26 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
     def simplify(p: Pred): Pred = p
 
     def solveSMT(constraints: Seq[GroundConstraint], binding: Map[Value, Pred]): Seq[Conflict] = {
-      val (ls, cs) = constraints.flatMap { c =>
+      val (ls, cs) =
+        constraints.map(compileConstraint(_, binding))
+          .foldLeft((Seq.empty[LogicConstraint], Seq.empty[Conflict])) {
+            case ((al, ac), (l, c)) =>
+              (al :+ l, ac ++ c)
+          }
+      cs ++ runSMT(ls)
+    }
+
+    private[this] def compileConstraint(c: GroundConstraint, binding: Map[Value, Pred]): (LogicConstraint, Seq[Conflict]) = {
+      val xs =
         propConstraints(c).map {
           case (t, l, r) =>
             globalEnv.findWorld(t).solveConstraint(c.env, binding, l, r)
         }
-      }.foldLeft((Seq.empty[Logic], Seq.empty[Conflict])) {
-        case ((al, ac), (l, c)) =>
-          (al ++ l, ac ++ c)
-      }
-      cs ++ runSMT(ls)
+      val logics = xs.flatMap(_._1)
+      val conflicts = xs.flatMap(_._2)
+      (LogicConstraint(c, Logic.and(logics)), conflicts)
     }
+
     private[this] def propConstraints(c: GroundConstraint): Seq[(TypeSym, PropPred, PropPred)] = {
       val l = c.lhs.upcast(c.rhs.tpe)
       val r = c.rhs
@@ -47,9 +56,9 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
       }
     }
 
-    private[this] def runSMT(logics: Seq[Logic]): Seq[Conflict] = {
+    private[this] def runSMT(constraints: Seq[LogicConstraint]): Seq[Conflict] = {
       println("SMT Logic:")
-      println(logics.map { x => "  " + x.toString }.mkString("\n"))
+      println(constraints.map { x => "  " + x.toString }.mkString("\n"))
 
       implicit val ctx = SMT.newContext()
       import SMTSyntax._
@@ -91,30 +100,40 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
           Set()
       }
 
-      withResource(ctx.newProverEnvironment()) { prover =>
-        println("Compiled SMT:")
-        logics.foreach { l =>
-          val fvs = fvars(l)
-          val smt = smtB(l)
-          println(s"  forall ${fvs.mkString(", ")}. $l")
-          import scala.collection.JavaConverters._
-          val quantified =
-            ctx.getFormulaManager.getQuantifiedFormulaManager.forall(
-              fvs.toSeq.map {
-                case v @ Logic.Var(_, Logic.TInt) =>
-                  ctx.getFormulaManager.getIntegerFormulaManager.makeVariable(v.toString)
-              }.asJava,
-              smt)
-          prover.push(quantified)
-          val unsat = prover.isUnsat()
-          prover.pop()
-          if (unsat) {
-            println(s"Unsat: $l; $quantified")
+      val conflicts =
+        withResource(ctx.newProverEnvironment()) { prover =>
+          println("Compiled SMT:")
+          constraints.foreach { c =>
+            val l = c.logic
+            val fvs = fvars(l)
+            println(s"  forall ${fvs.mkString(", ")}. $l")
+          }
+
+          constraints.flatMap { c =>
+            val l = c.logic
+            import scala.collection.JavaConverters._
+            val fvs = fvars(l)
+            val smt = smtB(l)
+            val quantified =
+              ctx.getFormulaManager.getQuantifiedFormulaManager.forall(
+                fvs.toSeq.map {
+                  case v @ Logic.Var(_, Logic.TInt) =>
+                    ctx.getFormulaManager.getIntegerFormulaManager.makeVariable(v.toString)
+                }.asJava,
+                smt)
+            prover.push(quantified)
+            val unsat = prover.isUnsat()
+            prover.pop()
+            if (unsat) {
+              println(s"Unsat: $l; $quantified")
+              Some(Conflict(c.constraint))
+            } else {
+              None
+            }
           }
         }
-      }
       SMT.shutdown.requestShutdown("die")
-      Seq()
+      conflicts
     }
     private[this] def withResource[A <: AutoCloseable, B](r: A)(f: A => B): B =
       try {

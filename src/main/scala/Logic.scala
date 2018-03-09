@@ -26,6 +26,12 @@ object Logic {
   case object TBool extends Type
   case object TString extends Type
 
+  def and(ls: Seq[Logic]): Logic = ls match {
+    case Seq() => True
+    case Seq(l) => l
+    case many => And(many)
+  }
+
   case class Var(id: Int, tpe: Type) extends Logic {
     override def toString = {
       val t = tpe match {
