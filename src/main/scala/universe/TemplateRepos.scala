@@ -2,7 +2,7 @@ package com.todesking.prety.universe
 
 import com.todesking.prety.Lang
 
-trait TemplateRepos { self: ForeignTypes with Queries with Values with ValueRepos with Templates with Preds with Envs =>
+trait TemplateRepos { self: ForeignTypes with Queries with Values with ValueRepos with Templates with Preds with Envs with Debugging =>
   val templateRepo = new TemplateRepo
 
   class TemplateRepo {
@@ -39,7 +39,7 @@ trait TemplateRepos { self: ForeignTypes with Queries with Values with ValueRepo
           ps.zip(vs).map { case (p, v) => query.name(p) -> v }
       }.toMap ++ Map("this" -> self)
 
-      val env: Env = buildEnv(values, ret)
+      val env: Env = buildEnv(values)
 
       val bindings =
         if (query.isLocal(f) && preds.isEmpty) {

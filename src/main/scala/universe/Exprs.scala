@@ -10,9 +10,9 @@ trait Exprs { self: ForeignTypes with Queries with Values with Envs =>
   object Expr {
     import Lang.{ Expr => E }
     val CE = CoreExpr
-    def compile(ast: Lang.Expr, env: Env): Expr = ast match {
+    def compile(ast: Lang.Expr, env: Env, theType: TypeSym): Expr = ast match {
       case E.TheValue =>
-        CE.TheValue(env.theValue.tpe)
+        CE.TheValue(theType)
       case E.Ident(name) =>
         CE.ValueRef(env.findValue(name))
       case E.Select(expr, name) =>
@@ -20,8 +20,8 @@ trait Exprs { self: ForeignTypes with Queries with Values with Envs =>
       case E.LitInt(value) =>
         CE.INT_Lit(value)
       case E.Op(lhs, op, rhs) =>
-        val l = compile(lhs, env)
-        val r = compile(rhs, env)
+        val l = compile(lhs, env, theType)
+        val r = compile(rhs, env, theType)
         env.findOp(l.tpe, op).apply(l, r)
     }
   }

@@ -2,7 +2,7 @@ package com.todesking.prety.universe
 
 import com.todesking.prety.Logic
 
-trait Solvers { self: ForeignTypes with Queries with Values with Graphs with Constraints with Conflicts with Preds with Envs with Preds with Props with Worlds =>
+trait Solvers { self: ForeignTypes with Queries with Values with Graphs with Constraints with Conflicts with Preds with Envs with Preds with Props with Worlds with Debugging =>
   object Solver {
     def solve(g: Graph): Seq[Conflict] = {
       val (nontrivials, trivialConflicts) = solveTrivial(g.groundConstraints)
@@ -35,8 +35,6 @@ trait Solvers { self: ForeignTypes with Queries with Values with Graphs with Con
           }
       cs ++ runSMT(ls)
     }
-
-    private[this] def dprint(s: String) = if (query.isDebugMode) println(s)
 
     private[this] def compileConstraint(c: GroundConstraint, binding: Map[Value, Pred]): (LogicConstraint, Seq[Conflict]) = {
       val xs =

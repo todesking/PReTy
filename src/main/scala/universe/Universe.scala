@@ -18,7 +18,8 @@ trait Universe extends AnyRef
   with Graphs
   with Templates
   with TemplateRepos
-  with Solvers {
+  with Solvers
+  with Debugging {
   def toAST(t: Tree): Seq[AST.CTODef]
   def reportError(pos: Pos, msg: String): Unit
 

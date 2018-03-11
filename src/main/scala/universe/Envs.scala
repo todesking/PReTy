@@ -1,28 +1,35 @@
 package com.todesking.prety.universe
 
 trait Envs { self: ForeignTypes with ForeignTypeOps with Queries with Values with Props with Preds with Exprs with Worlds =>
-  private[this] def nf(kind: String, key: String) = throw new RuntimeException(s"$kind $key not found")
 
-  class Env(
+  case class Env(
     val global: GlobalEnv,
     val values: Map[String, Value],
-    val theValue: Value) {
+    ) {
+
+    private[this] def vnf(key: String) =
+      throw new RuntimeException(s"Value $key not found(env: ${values.keys.mkString(", ")})")
 
     def findProp(name: String, targetType: TypeSym): PropKey =
       global.findProp(name, targetType)
 
     def findValue(name: String): Value =
-      values.get(name) getOrElse nf("Value", name)
+      values.get(name) getOrElse vnf(name)
 
     def findWorld(tpe: TypeSym): World =
       global.findWorld(tpe)
     def findOp(tpe: TypeSym, name: String): (Expr, Expr) => Expr =
       global.findOp(tpe, name)
+    def bind(mapping: (String, Value)*): Env =
+      Env(global, values ++ mapping)
   }
 
   class GlobalEnv(
     val props: Map[String, PropKey],
     val worlds: Map[TypeSym, World]) {
+
+    private[this] def nf(kind: String, key: String) =
+      throw new RuntimeException(s"$kind $key not found")
 
     def findProp(name: String, targetType: TypeSym): PropKey = name match {
       case "_" =>
@@ -48,6 +55,8 @@ trait Envs { self: ForeignTypes with ForeignTypeOps with Queries with Values wit
             case (l: CoreExpr, r: CoreExpr) if l.tpe <:< T.int && r.tpe <:< T.int =>
               CoreExpr.INT_EQ(l, r)
           }
+          case unk =>
+            nf("Operator", s"$tpe.$name")
         }
       else nf("Operator", s"$tpe.$name")
     }
@@ -59,8 +68,8 @@ trait Envs { self: ForeignTypes with ForeignTypeOps with Queries with Values wit
       worlds = Map(
         query.types.int -> new IntWorld))
 
-  def buildEnv(values: Map[String, Value], theValue: Value): Env = new Env(
+  def buildEnv(values: Map[String, Value]): Env = new Env(
     globalEnv,
     values = values,
-    theValue = theValue)
+    )
 }

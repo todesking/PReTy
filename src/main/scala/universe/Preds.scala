@@ -58,11 +58,14 @@ trait Preds { self: ForeignTypes with ForeignTypeOps with Queries with Values wi
           case (name, expr) =>
             val key = env.findProp(name, targetType)
             key -> env.findWorld(key.tpe).buildPred(
-              Expr.compile(expr, env))
+              Expr.compile(expr, env, key.tpe))
         })
 
     def exactInt(value: Value, v: Int): Pred =
-      compile(Map("_" -> Lang.Expr.Op(Lang.Expr.TheValue, "==", Lang.Expr.LitInt(v))), query.types.int, buildEnv(Map(), value))
+      compile(
+        Map("_" -> Lang.Expr.Op(Lang.Expr.TheValue, "==", Lang.Expr.LitInt(v))),
+        query.types.int,
+        buildEnv(Map()))
   }
 
   trait PropPred {
