@@ -2,16 +2,10 @@ package com.todesking.prety.universe
 
 import com.todesking.prety.Logic
 
-trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with UnknownPreds with Preds =>
-  case class PredEnv(values: Set[Value]) {
-    // TODO: add path condition
-    def add(v: Value): PredEnv =
-      PredEnv(values + v)
-  }
-
+trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with UnknownPreds with Preds with Envs =>
   // represents lhs <= rhs
   sealed abstract class Constraint {
-    def env: PredEnv
+    def env: Env
     def lhs: UnknownPred
     def rhs: UnknownPred
 
@@ -25,11 +19,11 @@ trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with Unkn
   object Constraint {
     // represents lhs <= rhs
     sealed abstract class LE extends Constraint
-    case class FocusLeft(env: PredEnv, lhs: UnknownPred.OfValue, rhs: UnknownPred) extends LE {
+    case class FocusLeft(env: Env, lhs: UnknownPred.OfValue, rhs: UnknownPred) extends LE {
       override def toString = s"$lhs *<= $rhs"
       override def focus = lhs.value
     }
-    case class FocusRight(env: PredEnv, lhs: UnknownPred, rhs: UnknownPred.OfValue) extends LE {
+    case class FocusRight(env: Env, lhs: UnknownPred, rhs: UnknownPred.OfValue) extends LE {
       override def toString = s"$lhs <=* $rhs"
       override def focus = rhs.value
     }

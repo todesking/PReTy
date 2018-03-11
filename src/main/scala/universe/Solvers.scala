@@ -94,8 +94,12 @@ trait Solvers { self: ForeignTypes with Queries with Values with Graphs with Con
           fvars(l) ++ fvars(r)
         case Logic.Gt(l, r) =>
           fvars(l) ++ fvars(r)
+        case Logic.Lt(l, r) =>
+          fvars(l) ++ fvars(r)
         case Logic.Implie(l, r) =>
           fvars(l) ++ fvars(r)
+        case Logic.And(xs) =>
+          xs.flatMap(fvars).toSet
         case v @ Logic.Var(_, _) =>
           Set(v)
         case _ =>

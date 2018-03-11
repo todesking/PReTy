@@ -4,24 +4,28 @@ trait Envs { self: ForeignTypes with ForeignTypeOps with Queries with Values wit
 
   case class Env(
     val global: GlobalEnv,
-    val values: Map[String, Value],
+    val binding: Map[String, Value],
     ) {
 
+      def values: Set[Value] = binding.values.toSet
+
     private[this] def vnf(key: String) =
-      throw new RuntimeException(s"Value $key not found(env: ${values.keys.mkString(", ")})")
+      throw new RuntimeException(s"Value $key not found(env: ${binding.keys.mkString(", ")})")
 
     def findProp(name: String, targetType: TypeSym): PropKey =
       global.findProp(name, targetType)
 
     def findValue(name: String): Value =
-      values.get(name) getOrElse vnf(name)
+      binding.get(name) getOrElse vnf(name)
 
     def findWorld(tpe: TypeSym): World =
       global.findWorld(tpe)
     def findOp(tpe: TypeSym, name: String): (Expr, Expr) => Expr =
       global.findOp(tpe, name)
+    def bind(mapping: Map[String, Value]): Env =
+      bind(mapping.toSeq: _*)
     def bind(mapping: (String, Value)*): Env =
-      Env(global, values ++ mapping)
+      Env(global, binding ++ mapping)
   }
 
   class GlobalEnv(
@@ -68,8 +72,8 @@ trait Envs { self: ForeignTypes with ForeignTypeOps with Queries with Values wit
       worlds = Map(
         query.types.int -> new IntWorld))
 
-  def buildEnv(values: Map[String, Value]): Env = new Env(
+  def buildEnv(binding: Map[String, Value]): Env = new Env(
     globalEnv,
-    values = values,
+    binding = binding,
     )
 }

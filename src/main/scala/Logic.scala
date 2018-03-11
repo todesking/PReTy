@@ -70,7 +70,9 @@ object Logic {
   case class Eq(lhs: Logic, rhs: Logic) extends Logic {
     override def toString = s"$lhs == $rhs"
   }
-  case class Lt(lhs: Logic, rhs: Logic) extends Logic
+  case class Lt(lhs: Logic, rhs: Logic) extends Logic {
+    override def toString = s"$lhs < $rhs"
+  }
   case class Le(lhs: Logic, rhs: Logic) extends Logic
   case class Gt(lhs: Logic, rhs: Logic) extends Logic {
     override def toString = s"$lhs > $rhs"

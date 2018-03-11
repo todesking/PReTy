@@ -37,7 +37,7 @@ trait Universe extends AnyRef
 
   def analyzeCTO(cto: AST.CTODef): Unit = {
     dprint(s"Analyzing CTO: ${cto.pretty.toString(0)}")
-    val graph = cto.impl.foldLeft(Graph.empty) { (g, i) => buildGraph(g, i, false) }
+    val graph = cto.impl.foldLeft(Graph.build(buildEnv(Map.empty))) { (g, i) => buildGraph(g, i, false) }
 
     def pos(v: Value) = valueRepo.getPos(v) match {
       case Some(p) =>
@@ -93,9 +93,10 @@ trait Universe extends AnyRef
     case AST.ValDef(sym, tpe, body) =>
       // TODO: Use default binding if public
       val template = templateOf(sym)
+      val g = if (inLocal) graph.let(query.name(sym), template.ret) else graph
       // TODO: distinct local val and member
-      body.fold(graph) { b =>
-        buildGraph(graph, b, true)
+      body.fold(g) { b =>
+        buildGraph(g, b, true)
           .subtype(b.value, template.ret)
       }.bind(template.bindings)
 
@@ -113,9 +114,10 @@ trait Universe extends AnyRef
       }
 
     case AST.Block(tpe, value, stats, expr) =>
-      val intro = stats.foldLeft(graph) { (g, s) => buildGraph(g, s, inLocal) }
+      val intro = stats.foldLeft(graph.pushEnv()) { case (g, s) => buildGraph(g, s, inLocal) }
       buildGraph(intro, expr, inLocal)
         .subtype(expr.value, value)
+        .popEnv()
 
     case AST.This(tpe, value) =>
       graph.bind(Map(value -> Pred.True))

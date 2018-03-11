@@ -27,7 +27,7 @@ trait Worlds { self: ForeignTypes with Envs with ForeignTypeOps with Constraints
   trait World {
     val tpe: TypeSym
     def buildPred(expr: Expr): PropPred
-    def solveConstraint(env: PredEnv, binding: Map[Value, Pred], lhs: PropPred, rhs: PropPred): (Seq[Logic], Seq[Conflict])
+    def solveConstraint(env: Env, binding: Map[Value, Pred], lhs: PropPred, rhs: PropPred): (Seq[Logic], Seq[Conflict])
     // pred.tpe == this.tpe
     def toLogic(pred: PropPred, theValue: Value): Logic
     // _.tpe == self.tpe
@@ -47,7 +47,7 @@ trait Worlds { self: ForeignTypes with Envs with ForeignTypeOps with Constraints
       case CorePred(p) => compile(p, propInLogic(theValue, selfPropKey))
     }
 
-    override def solveConstraint(env: PredEnv, binding: Map[Value, Pred], lhs: PropPred, rhs: PropPred) = (lhs, rhs) match {
+    override def solveConstraint(env: Env, binding: Map[Value, Pred], lhs: PropPred, rhs: PropPred) = (lhs, rhs) match {
       case (CorePred(l), CorePred(r)) =>
         // TODO: check base type constraint
         val v = freshVar(logicType(r.tpe))

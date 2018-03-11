@@ -1,19 +1,20 @@
 package com.todesking.prety.universe
 
-trait Graphs { self: Values with Preds with Constraints with UnknownPreds =>
+trait Graphs { self: Values with Preds with Constraints with UnknownPreds with Envs =>
   case class Graph(
     val constraints: Seq[Constraint],
     val binding: Map[Value, Pred],
     val aliases: Map[Value, UnknownPred],
-    envStack: List[PredEnv],
-    currentEnv: PredEnv) {
+    envStack: List[Env],
+    currentEnv: Env) {
+
+    def let(name: String, value: Value): Graph =
+      copy(currentEnv = currentEnv.bind(name -> value))
 
     def pushEnv(): Graph =
       copy(envStack = currentEnv :: envStack)
     def popEnv(): Graph =
       copy(envStack = envStack.tail, currentEnv = envStack.head)
-    def env(v: Value): Graph =
-      copy(currentEnv = currentEnv.add(v))
 
     def subtype(l: Value, r: UnknownPred): Graph =
       copy(constraints = constraints :+ Constraint.FocusLeft(currentEnv, l, r))
@@ -74,6 +75,6 @@ trait Graphs { self: Values with Preds with Constraints with UnknownPreds =>
     }
   }
   object Graph {
-    val empty: Graph = new Graph(Seq(), Map(), Map(), Nil, new PredEnv(Set()))
+    def build(env: Env): Graph = new Graph(Seq(), Map(), Map(), Nil, env)
   }
 }

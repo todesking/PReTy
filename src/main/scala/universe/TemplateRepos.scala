@@ -8,44 +8,45 @@ trait TemplateRepos { self: ForeignTypes with Queries with Values with ValueRepo
   class TemplateRepo {
     def get(f: DefSym): Template = {
       templates.get(f).getOrElse {
-        val t = freshTemplate(f)
+        val t = freshTemplate(f, buildEnv(Map.empty))
         this.templates = templates + (f -> t)
         t
       }
     }
 
+    def registerLocal(f: DefSym, env: Env): Template = {
+      if (templates.contains(f))
+        throw new RuntimeException(s"registerLocal: Conflict: $f")
+      freshTemplate(f, env)
+    }
+
     private[this] var templates = Map.empty[DefSym, Template]
 
-    private[this] def freshTemplate(f: DefSym): Template = {
+    private[this] def freshTemplate(f: DefSym, env: Env): Template = {
       if (query.isAccessor(f)) {
         get(query.unwrapAccessor(f))
       } else {
         val srcs = query.refinementSrc(f)
         val defs = Lang.parse(srcs)
-        buildTemplate(f, defs)
+        buildTemplate(f, defs, env)
       }
     }
 
-    private[this] def buildTemplate(f: DefSym, preds: Map[String, Lang.Def]): Template = {
+    private[this] def buildTemplate(f: DefSym, preds: Map[String, Lang.Def], baseEnv: Env): Template = {
       // TODO: Check unknown pred target
       val self = valueRepo.getOrRegisterThis(f)
-      val paramss = query.paramss(f)
-        .map { ps => ps.map { p => valueRepo.registerParam(f, p) } }
+      val paramss: Seq[Seq[(String, Value)]] = query.paramss(f)
+        .map { ps => ps.map { p => (query.name(p), valueRepo.registerParam(f, p)) } }
       // When f is local val, ret is already registered as param
       val ret = valueRepo.getOrRegisterReturn(f)
 
-      val values = query.paramss(f).zip(paramss).flatMap {
-        case (ps, vs) =>
-          ps.zip(vs).map { case (p, v) => query.name(p) -> v }
-      }.toMap ++ Map("this" -> self)
-
-      val env: Env = buildEnv(values)
+      val env: Env = baseEnv.bind(paramss.flatten.toMap + ("this" -> self))
 
       val bindings =
         if (query.isLocal(f) && preds.isEmpty) {
           Map.empty[Value, Pred]
         } else {
-          values.values.map { v => v -> Pred.True }.toMap ++ preds
+          paramss.flatten.map(_._2).map { v => v -> Pred.True }.toMap ++ preds
             .map {
               case (k, v) =>
                 val target = if (k == "_") ret else env.findValue(k)

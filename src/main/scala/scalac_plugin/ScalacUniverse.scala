@@ -85,7 +85,7 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
         valueRepo.setPos(template.ret, t.pos)
         for {
           (vs, ts) <- template.argss.zip(vparamss)
-          (v, t) <- vs.zip(ts)
+          ((n, v), t) <- vs.zip(ts)
         } {
           valueRepo.setPos(v, t.pos)
         }
