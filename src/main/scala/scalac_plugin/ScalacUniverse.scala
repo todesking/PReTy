@@ -121,6 +121,8 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
         AST.Super(s.tpe, valueRepo.newExpr(s.toString, t.pos, t.tpe))
       case i @ Ident(name) =>
         AST.LocalRef(i.symbol.asTerm, i.tpe, valueRepo.newExpr(s"ref:${i.symbol}", t.pos, t.tpe))
+      case If(cond, thenp, elsep) =>
+        AST.If(valueRepo.newExpr("if", t.pos, t.tpe), parseExpr(cond), parseExpr(thenp), parseExpr(elsep))
       case unk => unknown("Expr", unk)
     }
 

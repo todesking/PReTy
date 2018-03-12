@@ -13,6 +13,8 @@ trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with Unkn
       lhs.toValue.toSet ++ rhs.toValue
     def focus: Value
 
+    // TODO: tpe
+
     def ground(binding: Map[Value, Pred]): GroundConstraint =
       GroundConstraint(this, lhs.reveal(binding), rhs.reveal(binding))
   }
@@ -31,7 +33,6 @@ trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with Unkn
 
   // TODO: s/Ground/Concrete
   case class GroundConstraint(constraint: Constraint, lhs: Pred, rhs: Pred) {
-    require(lhs.tpe <:< rhs.tpe, s"$lhs: ${lhs.tpe} !<:< $rhs: ${rhs.tpe}")
     override def toString = constraint match {
       case Constraint.FocusLeft(e, l, r) =>
         s"$lhs *<= $rhs"

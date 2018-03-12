@@ -74,7 +74,7 @@ trait Exprs { self: ForeignTypes with Queries with Values with Envs =>
     case class INT_EQ(lhs: CoreExpr, rhs: CoreExpr) extends BinaryOp {
       override def tpe = T.boolean
       override def substitute(mapping: Map[Value, Value]) =
-        INT_GT(lhs.substitute(mapping), rhs.substitute(mapping))
+        INT_EQ(lhs.substitute(mapping), rhs.substitute(mapping))
       override def toString = s"$lhs == $rhs"
     }
     case class BOOL_Lit(value: Boolean) extends Leaf {

@@ -20,8 +20,8 @@ trait Preds { self: ForeignTypes with ForeignTypeOps with Queries with Values wi
 
     def &(rhs: Pred): Pred
 
-    def upcast(newType: TypeSym): Pred = {
-      require(tpe <:< newType)
+    def cast(newType: TypeSym): Pred = {
+      require(tpe <:< newType || newType <:< tpe, s"$tpe !<:> $newType")
       Pred(newType, definedProps.filterKeys { k => newType <:< k.targetType })
     }
 
@@ -62,9 +62,10 @@ trait Preds { self: ForeignTypes with ForeignTypeOps with Queries with Values wi
         props.map {
           case (name, expr) =>
             val key = env.findProp(name, targetType)
-            key -> env.findWorld(key.tpe).buildPred(
+            val pred = env.findWorld(key.tpe).buildPred(
               expr.toString,
               Expr.compile(expr, env, key.tpe))
+            key -> pred
         })
 
     def exactInt(value: Value, v: Int): Pred =

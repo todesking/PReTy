@@ -18,7 +18,7 @@ trait ASTs { self: ForeignTypes with Values =>
 
     sealed abstract class Term extends AST with InImpl
     sealed abstract class Expr extends Term {
-      def tpe: TypeSym
+      def tpe: TypeSym // TODO: tpe = value.tpe
       def value: Value
     }
     case class Block(tpe: TypeSym, value: Value, statements: Seq[InImpl], expr: Expr) extends Expr {
@@ -60,6 +60,18 @@ trait ASTs { self: ForeignTypes with Values =>
     case class UnitLiteral(value: Value) extends Literal {
       override val lit = ()
       override def tpe = ???
+    }
+
+    case class If(value: Value, cond: Expr, thenp: Expr, elsep: Expr) extends Expr {
+      override def tpe = value.tpe
+      override def pretty = PP(
+        s"if $value",
+        PP.indent(cond.pretty),
+        "then",
+        PP.indent(thenp.pretty),
+        "else",
+        PP.indent(elsep.pretty),
+      )
     }
 
     case class FunDef(

@@ -48,7 +48,7 @@ trait Solvers { self: ForeignTypes with Queries with Values with Graphs with Con
     }
 
     private[this] def propConstraints(c: GroundConstraint): Seq[(TypeSym, PropPred, PropPred)] = {
-      val l = c.lhs.upcast(c.rhs.tpe)
+      val l = c.lhs.cast(c.rhs.tpe)
       val r = c.rhs
       val keys = l.definedProps.keySet ++ r.definedProps.keySet
       keys.toSeq.map { k =>
