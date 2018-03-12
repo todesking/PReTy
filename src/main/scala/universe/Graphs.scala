@@ -14,6 +14,11 @@ trait Graphs { self: Values with Preds with Constraints with UnknownPreds with E
     def visible(v: Value*): Graph =
       copy(currentEnv = currentEnv.bindUnnamed(v: _*))
 
+    def cond(v: Value): Graph =
+      copy(currentEnv = currentEnv.cond(v))
+    def condNot(v: Value): Graph =
+      copy(currentEnv = currentEnv.uncond(v))
+
     def pushEnv(): Graph =
       copy(envStack = currentEnv :: envStack)
     def popEnv(): Graph =

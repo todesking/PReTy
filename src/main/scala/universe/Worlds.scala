@@ -55,7 +55,23 @@ trait Worlds { self: ForeignTypes with Envs with ForeignTypeOps with Constraints
                 this.toLogic(ppred, value)
             }
         }.reduceOption(_ & _) getOrElse Logic.True
-        (Seq((envLogic & compile(l, v)) --> compile(r, v)), Seq())
+        val condLogic =
+          binding.filterKeys(env.conds).flatMap {
+            case (value, pred) =>
+              pred.definedProps.map {
+                case (prop, ppred) =>
+                  this.toLogic(ppred, value)
+              }
+          }.reduceOption(_ & _) getOrElse Logic.True
+        val uncondLogic =
+          binding.filterKeys(env.unconds).flatMap {
+            case (value, pred) =>
+              pred.definedProps.map {
+                case (prop, ppred) =>
+                  !this.toLogic(ppred, value): Logic
+              }
+          }.reduceOption(_ & _) getOrElse Logic.True
+        (Seq((envLogic & condLogic & uncondLogic & compile(l, v)) --> compile(r, v)), Seq())
       case _ =>
         throw new RuntimeException(s"Unsupported pred pair: $lhs, $rhs")
     }

@@ -45,6 +45,6 @@ trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with Unkn
   }
 
   case class LogicConstraint(constraint: GroundConstraint, logic: Logic) {
-    override def toString = s"(${constraint.env.values.mkString(", ")}) => $constraint; $logic"
+    override def toString = s"(${constraint.env.values.mkString(", ")})(${constraint.env.conds.mkString(", ")})(${constraint.env.unconds.mkString(",")}) => $constraint; $logic"
   }
 }

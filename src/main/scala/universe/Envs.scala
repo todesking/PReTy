@@ -3,9 +3,11 @@ package com.todesking.prety.universe
 trait Envs { self: ForeignTypes with ForeignTypeOps with Queries with Values with Props with Preds with Exprs with Worlds =>
 
   case class Env(
-    val global: GlobalEnv,
-    val binding: Map[String, Value],
-    val unnamed: Set[Value]) {
+    global: GlobalEnv,
+    binding: Map[String, Value],
+    unnamed: Set[Value],
+    conds: Set[Value],
+    unconds: Set[Value]) {
 
     def values: Set[Value] = binding.values.toSet ++ unnamed
 
@@ -25,9 +27,13 @@ trait Envs { self: ForeignTypes with ForeignTypeOps with Queries with Values wit
     def bind(mapping: Map[String, Value]): Env =
       bind(mapping.toSeq: _*)
     def bind(mapping: (String, Value)*): Env =
-      Env(global, binding ++ mapping, unnamed)
+      copy(binding = binding ++ mapping)
     def bindUnnamed(v: Value*): Env =
-      Env(global, binding, unnamed ++ v)
+      copy(unnamed = unnamed ++ v)
+    def cond(v: Value): Env =
+      copy(conds = conds + v)
+    def uncond(v: Value): Env =
+      copy(unconds = unconds + v)
   }
 
   class GlobalEnv(
@@ -79,5 +85,7 @@ trait Envs { self: ForeignTypes with ForeignTypeOps with Queries with Values wit
   def buildEnv(binding: Map[String, Value]): Env = new Env(
     globalEnv,
     binding = binding,
+    Set(),
+    Set(),
     Set())
 }

@@ -150,10 +150,9 @@ trait Universe extends AnyRef
 
     case AST.If(value, cond, thenp, elsep) =>
       val g1 = buildGraph(graph.pushEnv, cond, true).popEnv
-      val g2 = buildGraph(g1.pushEnv, thenp, true).popEnv
-      val g3 = buildGraph(g2.pushEnv, elsep, true).popEnv
+      val g2 = buildGraph(g1.pushEnv.cond(cond.value), thenp, true).popEnv
+      val g3 = buildGraph(g2.pushEnv.condNot(cond.value), elsep, true).popEnv
       g3
   }
-
 }
 
