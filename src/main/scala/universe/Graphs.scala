@@ -11,6 +11,9 @@ trait Graphs { self: Values with Preds with Constraints with UnknownPreds with E
     def let(name: String, value: Value): Graph =
       copy(currentEnv = currentEnv.bind(name -> value))
 
+    def visible(v: Value*): Graph =
+      copy(currentEnv = currentEnv.bindUnnamed(v: _*))
+
     def pushEnv(): Graph =
       copy(envStack = currentEnv :: envStack)
     def popEnv(): Graph =

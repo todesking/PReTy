@@ -8,6 +8,7 @@ trait Queries { self: ForeignTypes =>
     def returnType(f: DefSym): TypeSym
     def thisType(f: DefSym): TypeSym
     def refinementSrc(f: DefSym): Seq[String]
+    def pos(f: DefSym): Pos
 
     def isAccessor(f: DefSym): Boolean
     def unwrapAccessor(f: DefSym): DefSym
@@ -26,6 +27,7 @@ trait Queries { self: ForeignTypes =>
     val types: TypesAPI
     trait TypesAPI {
       val nothing: TypeSym
+      val any: TypeSym
       val int: TypeSym
       val boolean: TypeSym
     }

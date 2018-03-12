@@ -2,7 +2,9 @@ package com.todesking.prety.universe
 
 trait UnknownPreds { self: Values with Preds =>
   sealed abstract class UnknownPred {
-    def reveal(binding: Map[Value, Pred]): Pred = revealOpt(binding).get
+    def reveal(binding: Map[Value, Pred]): Pred = revealOpt(binding) getOrElse {
+      throw new RuntimeException(s"Can't reveal $this(env=$binding)")
+    }
     def revealOpt(binding: Map[Value, Pred]): Option[Pred]
     def toValue: Option[Value]
   }

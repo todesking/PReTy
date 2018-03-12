@@ -26,29 +26,25 @@ trait Worlds { self: ForeignTypes with Envs with ForeignTypeOps with Constraints
 
   trait World {
     val tpe: TypeSym
-    def buildPred(expr: Expr): PropPred
+    def buildPred(src: String, expr: Expr): PropPred
     def solveConstraint(env: Env, binding: Map[Value, Pred], lhs: PropPred, rhs: PropPred): (Seq[Logic], Seq[Conflict])
     // pred.tpe == this.tpe
     def toLogic(pred: PropPred, theValue: Value): Logic
-    // _.tpe == self.tpe
-    def selfPropKey: PropKey
   }
 
   class IntWorld extends World {
     override val tpe = query.types.int
 
-    override def selfPropKey = PropKey("_", tpe, tpe)
-
-    override def buildPred(expr: Expr): CorePred = expr match {
-      case e: CoreExpr => CorePred(e)
+    override def buildPred(src: String, expr: Expr): CorePred = expr match {
+      case e: CoreExpr => CorePred(src, e)
     }
 
     override def toLogic(pred: PropPred, theValue: Value): Logic = pred match {
-      case CorePred(p) => compile(p, propInLogic(theValue, selfPropKey))
+      case CorePred(_, p) => compile(p, propInLogic(theValue, globalEnv.selfPropKey(theValue.tpe)))
     }
 
     override def solveConstraint(env: Env, binding: Map[Value, Pred], lhs: PropPred, rhs: PropPred) = (lhs, rhs) match {
-      case (CorePred(l), CorePred(r)) =>
+      case (CorePred(_, l), CorePred(_, r)) =>
         // TODO: check base type constraint
         val v = freshVar(logicType(r.tpe))
         val envLogic = binding.filterKeys(env.values).flatMap {
@@ -70,7 +66,7 @@ trait Worlds { self: ForeignTypes with Envs with ForeignTypeOps with Constraints
       case E.TheValue(_) =>
         theValue
       case E.ValueRef(v) =>
-        propInLogic(v, globalEnv.findWorld(v.tpe).selfPropKey)
+        propInLogic(v, globalEnv.selfPropKey(v.tpe))
       case E.INT_Lit(x) =>
         Logic.IntValue(x)
       case E.INT_GT(l, r) =>

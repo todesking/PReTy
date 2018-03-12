@@ -9,4 +9,5 @@ trait Values { self: ForeignTypes with Constraints with UnknownPreds =>
     implicit def valueToUnknownPred(v: Value): UnknownPred.OfValue =
       UnknownPred.OfValue(v)
   }
+  case class FunctionValue(self: Value, ret: Value, paramss: Seq[Seq[(String, Value)]])
 }

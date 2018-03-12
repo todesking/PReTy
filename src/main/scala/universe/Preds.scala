@@ -24,6 +24,8 @@ trait Preds { self: ForeignTypes with ForeignTypeOps with Queries with Values wi
       require(tpe <:< newType)
       Pred(newType, definedProps.filterKeys { k => newType <:< k.targetType })
     }
+
+    def messageString: String
   }
 
   object Pred {
@@ -40,15 +42,18 @@ trait Preds { self: ForeignTypes with ForeignTypeOps with Queries with Values wi
         override def &(rhs: Pred) = ???
         override def toString =
           definedProps.map { case (k, v) => s"${k.name}: $v" }.mkString("{", ", ", "}")
+        override def messageString =
+          definedProps.map { case (k, v) => s"${k.name}: ${v.src}" }.mkString("{", ", ", "}")
       }
     }
     case object True extends Pred {
-      override def tpe = query.types.nothing
+      override def tpe = query.types.any
       override def prop(key: PropKey) = throw new IllegalArgumentException("True pred has no props")
       override def definedProps = Map()
       override def substitute(mapping: Map[Value, Value]) = this
       override def &(rhs: Pred) = rhs
       override def toString = "{}"
+      override def messageString = "{}"
     }
 
     def compile(props: Map[String, Lang.Expr], targetType: TypeSym, env: Env): Pred =
@@ -58,6 +63,7 @@ trait Preds { self: ForeignTypes with ForeignTypeOps with Queries with Values wi
           case (name, expr) =>
             val key = env.findProp(name, targetType)
             key -> env.findWorld(key.tpe).buildPred(
+              expr.toString,
               Expr.compile(expr, env, key.tpe))
         })
 
@@ -70,14 +76,15 @@ trait Preds { self: ForeignTypes with ForeignTypeOps with Queries with Values wi
 
   trait PropPred {
     def substitute(mapping: Map[Value, Value]): PropPred
+    def src: String
   }
   object PropPred {
-    val True = CorePred(CoreExpr.BOOL_Lit(true))
+    val True = CorePred("true", CoreExpr.BOOL_Lit(true))
   }
 
-  case class CorePred(expr: CoreExpr) extends PropPred {
+  case class CorePred(src: String, expr: CoreExpr) extends PropPred {
     override def substitute(mapping: Map[Value, Value]): CorePred =
-      CorePred(expr.substitute(mapping))
+      CorePred(src, expr.substitute(mapping))
     override def toString = expr.toString
   }
 

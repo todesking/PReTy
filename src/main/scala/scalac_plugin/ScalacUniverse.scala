@@ -34,6 +34,7 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
           }
       }
     }
+    override def pos(f: DefSym) = f.pos
 
     override def isAccessor(f: DefSym) = f.isAccessor
     override def unwrapAccessor(f: DefSym) = f.accessed.asTerm
@@ -52,6 +53,7 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
     override val types = new TypesAPI {
       private[this] def get(name: String) = global.rootMirror.getRequiredClass(name).tpe
       override val nothing = get("scala.Nothing")
+      override val any = get("scala.Any")
       override val int = get("scala.Int")
       override val boolean = get("scala.Boolean")
     }
@@ -80,15 +82,6 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
         Seq()
       case dd @ DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
         val sym = dd.symbol.asMethod
-        val template = templateOf(sym)
-        valueRepo.setPos(template.self, t.pos)
-        valueRepo.setPos(template.ret, t.pos)
-        for {
-          (vs, ts) <- template.argss.zip(vparamss)
-          ((n, v), t) <- vs.zip(ts)
-        } {
-          valueRepo.setPos(v, t.pos)
-        }
         // TODO: remove values from def/ref AST: Symbols is enough
         // TODO: Handle default args
         Seq(
@@ -98,9 +91,6 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
             if (rhs.isEmpty) None else Some(parseExpr(rhs))))
       case vd @ ValDef(mods, name, tpt, rhs) =>
         val sym = vd.symbol.asTerm
-        val template = templateOf(sym)
-        valueRepo.setPos(template.self, t.pos)
-        valueRepo.setPos(template.ret, t.pos)
         Seq(AST.ValDef(sym, sym.selfType, if (rhs.isEmpty) None else Some(parseExpr(rhs))))
       case other =>
         Seq(parseExpr(other))

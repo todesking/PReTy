@@ -31,7 +31,7 @@ trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with Unkn
 
   // TODO: s/Ground/Concrete
   case class GroundConstraint(constraint: Constraint, lhs: Pred, rhs: Pred) {
-    require(lhs.tpe <:< rhs.tpe)
+    require(lhs.tpe <:< rhs.tpe, s"$lhs: ${lhs.tpe} !<:< $rhs: ${rhs.tpe}")
     override def toString = constraint match {
       case Constraint.FocusLeft(e, l, r) =>
         s"$lhs *<= $rhs"
@@ -40,9 +40,10 @@ trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with Unkn
     }
     def focus: Value = constraint.focus
     def env = constraint.env
+    def messageString = s"${lhs.messageString} *<= ${rhs.messageString}"
   }
 
   case class LogicConstraint(constraint: GroundConstraint, logic: Logic) {
-    override def toString = s"$constraint; $logic"
+    override def toString = s"(${constraint.env.values.mkString(", ")}) => $constraint; $logic"
   }
 }

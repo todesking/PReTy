@@ -23,9 +23,6 @@ trait Universe extends AnyRef
   def toAST(t: Tree): Seq[AST.CTODef]
   def reportError(pos: Pos, msg: String): Unit
 
-  def templateOf(f: DefSym) =
-    templateRepo.get(f)
-
   private[this] def unk(t: AST): Nothing =
     throw new RuntimeException(s"Unknown AST: $t")
   private[this] def dprint(s: String) = if (query.isDebugMode) println(s)
@@ -78,6 +75,10 @@ trait Universe extends AnyRef
         case v =>
           dprint(f"${pos(v)}%-7s $v")
       }
+    dprint("Ground constraints:")
+    inferred.groundConstraints.foreach { c =>
+      dprint(f"${pos(c.focus)}%-7s $c")
+    }
 
     val conflicts = Solver.solve(inferred)
     conflicts.foreach { c =>
@@ -92,7 +93,7 @@ trait Universe extends AnyRef
 
     case AST.ValDef(sym, tpe, body) =>
       // TODO: Use default binding if public
-      val template = templateOf(sym)
+      val template = templateRepo.get(sym, graph.currentEnv)
       val g = if (inLocal) graph.let(query.name(sym), template.ret) else graph
       // TODO: distinct local val and member
       body.fold(g) { b =>
@@ -105,7 +106,7 @@ trait Universe extends AnyRef
         graph
       } else {
         // TODO: Use default binding if public
-        val template = templateOf(sym)
+        val template = templateRepo.get(sym, graph.currentEnv)
         // TODO: Handle local def
         body.fold(graph) { b =>
           buildGraph(graph, b, true)
@@ -123,14 +124,16 @@ trait Universe extends AnyRef
       graph.bind(Map(value -> Pred.True))
 
     case AST.Apply(self, sym, tpe, value, argss) =>
+      val g = graph.pushEnv().visible(argss.flatten.map(_.value): _*)
       // TODO: register template.binding (or make global binding repo) for foreign members
-      val template = templateOf(sym)
-      val g1 = buildGraph(graph, self, inLocal)
+      val template = templateRepo.get(sym, g.currentEnv)
+      val g1 = buildGraph(g, self, inLocal)
       val g2 = argss.flatten.foldLeft(g1) { (g, a) => buildGraph(g, a, inLocal) }
       template.apply(g2, self.value, value, argss.map(_.map(_.value)))
+        .popEnv()
 
     case AST.LocalRef(sym, tpe, value) =>
-      val t = templateOf(sym)
+      val t = templateRepo.get(sym, graph.currentEnv)
       graph
         .alias(value, t.ret)
 
