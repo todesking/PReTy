@@ -60,13 +60,13 @@ trait Exprs { self: ForeignTypes with Queries with Values with Envs =>
       override def toString = value.toString
     }
     case class INT_GT(lhs: CoreExpr, rhs: CoreExpr) extends BinaryOp {
-      override def tpe = T.int
+      override def tpe = T.boolean
       override def substitute(mapping: Map[Value, Value]) =
         INT_GT(lhs.substitute(mapping), rhs.substitute(mapping))
       override def toString = s"$lhs > $rhs"
     }
     case class INT_LT(lhs: CoreExpr, rhs: CoreExpr) extends BinaryOp {
-      override def tpe = T.int
+      override def tpe = T.boolean
       override def substitute(mapping: Map[Value, Value]) =
         INT_LT(lhs.substitute(mapping), rhs.substitute(mapping))
       override def toString = s"$lhs < $rhs"

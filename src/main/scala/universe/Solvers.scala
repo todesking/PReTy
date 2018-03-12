@@ -86,6 +86,8 @@ trait Solvers { self: ForeignTypes with Queries with Values with Graphs with Con
           smtB(l) --> smtB(r)
         case Logic.And(conds) =>
           ctx.getFormulaManager.getBooleanFormulaManager.and(conds.map { c => smtB(c) }: _*)
+        case Logic.Var(_, Logic.TBool) =>
+          ctx.booleanVar(l.toString)
         case unk =>
           throw new RuntimeException(s"SMT-B: $unk")
       }
@@ -179,6 +181,8 @@ trait Solvers { self: ForeignTypes with Queries with Values with Graphs with Con
         private[this] def fm = self.getFormulaManager
         def intVar(name: String) =
           fm.getIntegerFormulaManager().makeVariable(name)
+        def booleanVar(name: String) =
+          fm.getBooleanFormulaManager().makeVariable(name)
         def lit(v: Int) =
           fm.getIntegerFormulaManager().makeNumber(v.toLong)
       }

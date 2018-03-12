@@ -11,6 +11,9 @@ object Env {
     @refine("_: _ > x")
     val y = 2
 
+    @refine("_: _ == x")
+    val z = y
+    //      ^ {_: _ > x} *<= {_: _ == x}
 
     lt(1, 2)
     lt(2, 2)

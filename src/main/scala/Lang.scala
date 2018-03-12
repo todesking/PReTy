@@ -33,7 +33,7 @@ object Lang {
     def ident = name ^^ { id => Expr.Ident(id) }
     def the_value = "_" ^^ { _ => Expr.TheValue }
     def name = "[a-zA-Z_][a-zA-Z_0-9]*".r
-    def op = "[-+<>:*/]+".r
+    def op = "[-+<>:*/=]+".r
     def lit = int
     def int = "[0-9]|[1-9][0-9]*".r ^^ { v => Expr.LitInt(v.toInt) }
   }

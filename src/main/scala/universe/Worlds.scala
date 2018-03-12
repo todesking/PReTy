@@ -46,7 +46,7 @@ trait Worlds { self: ForeignTypes with Envs with ForeignTypeOps with Constraints
     override def solveConstraint(env: Env, binding: Map[Value, Pred], lhs: PropPred, rhs: PropPred) = (lhs, rhs) match {
       case (CorePred(_, l), CorePred(_, r)) =>
         // TODO: check base type constraint
-        val v = freshVar(logicType(r.tpe))
+        val v = freshVar(logicType(this.tpe))
         val envLogic = binding.filterKeys(env.values).flatMap {
           case (value, pred) =>
             // TODO: use corresponding world
