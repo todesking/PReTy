@@ -5,16 +5,21 @@ import com.todesking.prety.{ Logic }
 trait Worlds { self: ForeignTypes with Envs with ForeignTypeOps with Constraints with Queries with Values with Preds with Props with Exprs with Conflicts with Templates =>
 
   private[this] var nextVarId = 0
-  def freshVar(tpe: Logic.Type): Logic.Var = {
-    val v = Logic.Var(nextVarId, tpe)
+  def freshVar(tpe: Logic.Type, name: String): Logic.Var = {
+    val v = Logic.Var(nextVarId, tpe, name)
     nextVarId += 1
     v
   }
 
-  private[this] var prop2l = Map[(Value, PropKey), Logic.Var]()
-  def propInLogic(value: Value, prop: PropKey): Logic.Var =
+  private[this] var prop2l = Map[(Value, PropKey), Logic]()
+  def propInLogic(value: Value, prop: PropKey): Logic =
     prop2l.get((value.naked, prop)) getOrElse {
-      val v = freshVar(logicType(prop.tpe))
+      val v = value.naked match {
+        case Value.IntLiteral(i) if prop == PropKey("_", query.types.int, query.types.int) => // TODO
+          Logic.IntValue(i)
+        case _ =>
+          freshVar(logicType(prop.tpe), value.naked.toString)
+      }
       prop2l = prop2l + ((value.naked, prop) -> v)
       v
     }
@@ -28,7 +33,7 @@ trait Worlds { self: ForeignTypes with Envs with ForeignTypeOps with Constraints
   trait World {
     val tpe: TypeSym
     def buildPred(src: String, expr: Expr): PropPred
-    def solveConstraint(env: Env, binding: Map[Value, Pred], lhs: PropPred, rhs: PropPred): (Seq[Logic], Seq[Conflict])
+    def solveConstraint(theValue: Value, key: PropKey, env: Env, binding: Map[Value, Pred], lhs: PropPred, rhs: PropPred): (Seq[Logic], Seq[Conflict])
     // pred.tpe == this.tpe
     def toLogic(pred: PropPred, theValue: Value): Logic
   }
@@ -42,10 +47,10 @@ trait Worlds { self: ForeignTypes with Envs with ForeignTypeOps with Constraints
       case CorePred(_, p) => compile(p, propInLogic(theValue, globalEnv.selfPropKey(theValue.tpe)))
     }
 
-    override def solveConstraint(env: Env, binding: Map[Value, Pred], lhs: PropPred, rhs: PropPred) = (lhs, rhs) match {
+    override def solveConstraint(theValue: Value, key: PropKey, env: Env, binding: Map[Value, Pred], lhs: PropPred, rhs: PropPred) = (lhs, rhs) match {
       case (CorePred(_, l), CorePred(_, r)) =>
         // TODO: check base type constraint
-        val v = freshVar(logicType(this.tpe))
+        val v = propInLogic(theValue, key)
         val envLogic = binding.filterKeys(env.values).flatMap {
           case (value, pred) =>
             // TODO: use corresponding world
@@ -77,7 +82,7 @@ trait Worlds { self: ForeignTypes with Envs with ForeignTypeOps with Constraints
 
     private[this] val E = CoreExpr
     private[this] val L = Logic
-    private[this] def compile(e: CoreExpr, theValue: Logic.Var): Logic = e match {
+    private[this] def compile(e: CoreExpr, theValue: Logic): Logic = e match {
       case E.TheValue(_) =>
         theValue
       case E.ValueRef(v) =>

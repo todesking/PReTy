@@ -68,7 +68,7 @@ trait Exprs { self: ForeignTypes with ForeignTypeOps with Queries with Values wi
       override def tpe = value.tpe
       override def substitute(mapping: Map[Value, Value]) =
         mapping.get(value).map(ValueRef.apply) getOrElse this
-      override def toString = s"value($value)"
+      override def toString = value.toString
       override def messageString = value.name
     }
 

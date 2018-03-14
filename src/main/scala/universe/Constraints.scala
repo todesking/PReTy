@@ -16,7 +16,7 @@ trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with Unkn
     // TODO: tpe
 
     def ground(binding: Map[Value, Pred]): GroundConstraint =
-      GroundConstraint(this, binding, lhs.reveal(binding), rhs.reveal(binding))
+      GroundConstraint(this, binding, lhs.toValue, rhs.toValue, lhs.reveal(binding), rhs.reveal(binding))
 
     def arrowString: String
     override def toString = s"$lhs $arrowString $rhs"
@@ -35,13 +35,9 @@ trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with Unkn
   }
 
   // TODO: s/Ground/Concrete
-  case class GroundConstraint(constraint: Constraint, binding: Map[Value, Pred], lhs: Pred, rhs: Pred) {
-    override def toString = constraint match {
-      case Constraint.FocusLeft(e, l, r) =>
-        s"(${constraint.focus}) $lhs *<= $rhs"
-      case Constraint.FocusRight(e, l, r) =>
-        s"(${constraint.focus}) $lhs <=* $rhs"
-    }
+  case class GroundConstraint(constraint: Constraint, binding: Map[Value, Pred], lvalue: Option[Value], rvalue: Option[Value], lhs: Pred, rhs: Pred) {
+    override def toString =
+      s"${lvalue getOrElse "(no value)"} $lhs ${constraint.arrowString} $rhs ${rvalue getOrElse "(no value)"}"
     def focus: Value = constraint.focus
     def env = constraint.env
     def messageString = s"${lhs.messageString} ${constraint.arrowString} ${rhs.messageString}"

@@ -32,8 +32,8 @@ object Logic {
     case many => And(many)
   }
 
-  case class Var(id: Int, tpe: Type) extends Logic {
-    override def toString = {
+  case class Var(id: Int, tpe: Type, name: String) extends Logic {
+    def varName = {
       val t = tpe match {
         case TInt => "i"
         case TBool => "b"
@@ -41,6 +41,7 @@ object Logic {
       }
       s"${t}_$id"
     }
+    override def toString = s"$varName($name)"
   }
 
   case class IntValue(value: Int) extends Logic {

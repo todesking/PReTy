@@ -39,20 +39,20 @@ trait Solvers { self: ForeignTypes with Queries with Values with ValueRepos with
     private[this] def compileConstraint(c: GroundConstraint, binding: Map[Value, Pred]): (LogicConstraint, Seq[Conflict]) = {
       val xs =
         propConstraints(c).map {
-          case (t, l, r) =>
-            globalEnv.findWorld(t).solveConstraint(c.env, binding, l, r)
+          case (key, l, r) =>
+            globalEnv.findWorld(key.tpe).solveConstraint(c.focus, key, c.env, binding, l, r)
         }
       val logics = xs.flatMap(_._1)
       val conflicts = xs.flatMap(_._2)
       (LogicConstraint(c, Logic.and(logics)), conflicts)
     }
 
-    private[this] def propConstraints(c: GroundConstraint): Seq[(TypeSym, PropPred, PropPred)] = {
+    private[this] def propConstraints(c: GroundConstraint): Seq[(PropKey, PropPred, PropPred)] = {
       val l = c.lhs.cast(c.rhs.tpe)
       val r = c.rhs
       val keys = l.definedProps.keySet ++ r.definedProps.keySet
       keys.toSeq.map { k =>
-        (k.tpe, l.prop(k), r.prop(k))
+        (k, l.prop(k), r.prop(k))
       }
     }
 
@@ -91,8 +91,8 @@ trait Solvers { self: ForeignTypes with Queries with Values with ValueRepos with
       def smtI(l: Logic): IntegerFormula = l match {
         case Logic.IntValue(v) =>
           ctx.lit(v)
-        case v @ Logic.Var(_, Logic.TInt) =>
-          ctx.intVar(v.toString)
+        case v @ Logic.Var(_, Logic.TInt, name) =>
+          ctx.intVar(v.varName)
         case unk =>
           throw new RuntimeException(s"SMT-I: $unk")
       }
@@ -109,8 +109,8 @@ trait Solvers { self: ForeignTypes with Queries with Values with ValueRepos with
           smtB(l) --> smtB(r)
         case Logic.And(conds) =>
           ctx.getFormulaManager.getBooleanFormulaManager.and(conds.map { c => smtB(c) }: _*)
-        case Logic.Var(_, Logic.TBool) =>
-          ctx.booleanVar(l.toString)
+        case v @ Logic.Var(_, Logic.TBool, name) =>
+          ctx.booleanVar(v.varName)
         case Logic.Not(l) =>
           !smtB(l)
         case unk =>
@@ -127,7 +127,7 @@ trait Solvers { self: ForeignTypes with Queries with Values with ValueRepos with
           fvars(l) ++ fvars(r)
         case Logic.And(xs) =>
           xs.flatMap(fvars).toSet
-        case v @ Logic.Var(_, _) =>
+        case v @ Logic.Var(_, _, _) =>
           Set(v)
         case _ =>
           Set()
@@ -150,8 +150,8 @@ trait Solvers { self: ForeignTypes with Queries with Values with ValueRepos with
             val quantified =
               ctx.getFormulaManager.getQuantifiedFormulaManager.forall(
                 fvs.toSeq.map {
-                  case v @ Logic.Var(_, Logic.TInt) =>
-                    ctx.getFormulaManager.getIntegerFormulaManager.makeVariable(v.toString)
+                  case v @ Logic.Var(_, Logic.TInt, name) =>
+                    ctx.getFormulaManager.getIntegerFormulaManager.makeVariable(v.varName)
                 }.asJava,
                 smt)
             prover.push(quantified)
