@@ -13,9 +13,9 @@ trait Worlds { self: ForeignTypes with Envs with ForeignTypeOps with Constraints
 
   private[this] var prop2l = Map[(Value, PropKey), Logic.Var]()
   def propInLogic(value: Value, prop: PropKey): Logic.Var =
-    prop2l.get((value, prop)) getOrElse {
+    prop2l.get((value.naked, prop)) getOrElse {
       val v = freshVar(logicType(prop.tpe))
-      prop2l = prop2l + ((value, prop) -> v)
+      prop2l = prop2l + ((value.naked, prop) -> v)
       v
     }
 

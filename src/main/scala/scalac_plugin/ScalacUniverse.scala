@@ -128,7 +128,7 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
         AST.This(t.tpe, valueRepo.newExpr(s"this", t.pos, t.tpe))
       case Literal(Constant(v)) =>
         v match {
-          case i: Int => AST.IntLiteral(valueRepo.newExpr(s"lit:$i", t.pos, t.tpe), i)
+          case i: Int => AST.IntLiteral(valueRepo.newRef(Value.IntLiteral(i), t.pos), i)
           case u: Unit => AST.UnitLiteral(valueRepo.newExpr(s"lit:()", t.pos, t.tpe))
         }
       case sel @ Select(qual, name) =>
@@ -138,7 +138,8 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
       case s @ Super(qual, mix) =>
         AST.Super(s.tpe, valueRepo.newExpr(s.toString, t.pos, t.tpe))
       case i @ Ident(name) =>
-        AST.LocalRef(i.symbol.asTerm, i.tpe, valueRepo.newExpr(s"ref:${i.symbol}", t.pos, t.tpe))
+        val fv = valueRepo.functionValue(i.symbol.asTerm)
+        AST.LocalRef(i.symbol.asTerm, i.tpe, valueRepo.newRef(fv.ret, i.pos))
       case If(cond, thenp, elsep) =>
         AST.If(valueRepo.newExpr("if", t.pos, t.tpe), parseExpr(cond), parseExpr(thenp), parseExpr(elsep))
       case unk => unknown("Expr", unk)

@@ -4,7 +4,15 @@ trait ValueRepos { self: ForeignTypes with Queries with Values =>
   class ValueRepo {
     private[this] var nextValueId = 0
     private[this] def fresh(name: String, pos: Pos, tpe: TypeSym): Value = {
-      val v = Value(nextValueId, name, tpe)
+      val v = Value.Origin(nextValueId, name, tpe)
+      nextValueId += 1
+      if (pos != query.emptyPos)
+        positions = positions + (v -> pos)
+      v
+    }
+
+    def newRef(origin: Value, pos: Pos): Value = {
+      val v = Value.Ref(nextValueId, origin)
       nextValueId += 1
       if (pos != query.emptyPos)
         positions = positions + (v -> pos)

@@ -44,7 +44,7 @@ trait Universe extends AnyRef
     }
 
     dprint(s"Initial binding:")
-    graph.binding.toSeq.sortBy(_._1.id)
+    graph.binding.toSeq
       .foreach {
         case (v, p) =>
           dprint(f"${pos(v)}%-7s $v = $p")
@@ -56,7 +56,6 @@ trait Universe extends AnyRef
     val inferred = graph.infer()
     dprint(s"Inferred binding:")
     (inferred.binding.keySet -- graph.binding.keySet).toSeq
-      .sortBy(_.id)
       .foreach {
         case v =>
           dprint(f"${pos(v)}%-7s $v = ${inferred.binding(v)}")
@@ -64,7 +63,6 @@ trait Universe extends AnyRef
 
     dprint("Unbound:")
     (inferred.allValues -- inferred.binding.keySet).toSeq
-      .sortBy(_.id)
       .foreach {
         case v =>
           dprint(f"${pos(v)}%-7s $v")
@@ -136,7 +134,7 @@ trait Universe extends AnyRef
 
     case AST.IntLiteral(value, lit) =>
       graph.bind(Map(
-        value -> Pred.exactInt(value, lit)))
+        value -> Pred.exactInt(value, lit))).visible(value)
 
     case AST.UnitLiteral(value) =>
       graph.bind(Map(value -> Pred.True))

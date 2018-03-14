@@ -2,7 +2,7 @@ package com.todesking.prety.universe
 
 import com.todesking.prety.Logic
 
-trait Solvers { self: ForeignTypes with Queries with Values with Graphs with Constraints with Conflicts with Preds with Envs with Preds with Props with Worlds with Debugging =>
+trait Solvers { self: ForeignTypes with Queries with Values with ValueRepos with Graphs with Constraints with Conflicts with Preds with Envs with Preds with Props with Worlds with Debugging =>
   object Solver {
     def solve(g: Graph): Seq[Conflict] = {
       val (nontrivials, trivialConflicts) = solveTrivial(g.groundConstraints)
@@ -57,18 +57,27 @@ trait Solvers { self: ForeignTypes with Queries with Values with Graphs with Con
     }
 
     private[this] def runSMT(constraints: Seq[LogicConstraint]): Seq[Conflict] = {
+      def pos(v: Value) = valueRepo.getPos(v) match {
+        case Some(p) =>
+          s"${query.lineNum(p)}:${query.columnNum(p)}"
+        case None =>
+          s"???"
+      }
       dprint("SMT Logic:")
       constraints.foreach { c =>
         def valueString(v: Value) = s"$v: ${c.constraint.binding(v)}"
-        dprint(c.constraint.focus)
-        c.constraint.env.values.map(valueString).foreach { v =>
-          dprint("  ENV:", v)
+        def show(v: Value): String =
+          s"${pos(v)} ${valueString(v)}"
+
+        dprint(show(c.constraint.focus))
+        c.constraint.env.values.foreach { v =>
+          dprint("  ENV:", show(v))
         }
-        c.constraint.env.conds.map(valueString).foreach { v =>
-          dprint("  COND:", v)
+        c.constraint.env.conds.foreach { v =>
+          dprint("  COND:", show(v))
         }
-        c.constraint.env.unconds.map(valueString).foreach { v =>
-          dprint("  UNCOND:", v)
+        c.constraint.env.unconds.foreach { v =>
+          dprint("  UNCOND:", show(v))
         }
         dprint("  =>", c.constraint)
         dprint("  =>", c.logic)
