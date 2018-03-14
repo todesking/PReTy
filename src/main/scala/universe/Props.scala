@@ -3,8 +3,26 @@ package com.todesking.prety.universe
 import com.todesking.prety.Logic
 
 trait Props { self: ForeignTypes with Queries with ForeignTypeOps with Values with Preds with Exprs with Conflicts with Envs =>
-  case class PropKey(name: String, targetType: TypeSym, tpe: TypeSym) {
-    override def toString = s"[$name($targetType): $tpe]"
+  sealed abstract class PropKey {
+    def isTarget(t: TypeSym): Boolean
+    def typeFor(t: TypeSym): TypeSym
+    def name: String
+  }
+  object PropKey {
+    case class Named(name: String, targetType: TypeSym, tpe: TypeSym) extends PropKey {
+      require(name != "_")
+
+      override def toString = s"[property $name: $targetType => $tpe]"
+      override def isTarget(t: TypeSym) = t <:< targetType
+      override def typeFor(t: TypeSym) = tpe
+    }
+    case object Self extends PropKey {
+      override def toString = s"[property self]"
+      override def isTarget(t: TypeSym) = true
+      // TODO: clean literal types
+      override def typeFor(t: TypeSym) = t
+      override def name = "_"
+    }
   }
 
   private[this] var nextVarId = 0
@@ -17,13 +35,14 @@ trait Props { self: ForeignTypes with Queries with ForeignTypeOps with Values wi
   private[this] var prop2l = Map[(Value, PropKey), Logic]()
   def propInLogic(value: Value, prop: PropKey): Logic =
     prop2l.get((value.naked, prop)) getOrElse {
-      val v = value.naked match {
-        case Value.IntLiteral(i) if prop == PropKey("_", query.types.int, query.types.int) => // TODO
+      val naked = value.naked
+      val v = naked match {
+        case Value.IntLiteral(i) if prop == PropKey.Self => // TODO
           Logic.IntValue(i)
         case _ =>
-          freshVar(logicType(prop.tpe), value.naked.toString)
+          freshVar(logicType(prop.typeFor(naked.tpe)), naked.toString)
       }
-      prop2l = prop2l + ((value.naked, prop) -> v)
+      prop2l = prop2l + ((naked, prop) -> v)
       v
     }
 
@@ -47,7 +66,7 @@ trait Props { self: ForeignTypes with Queries with ForeignTypeOps with Values wi
     }
 
     override def toLogic(pred: PropPred, theValue: Value): Logic = pred match {
-      case CorePred(_, p) => compile(p, propInLogic(theValue, globalEnv.selfPropKey(theValue.tpe)))
+      case CorePred(_, p) => compile(p, propInLogic(theValue, PropKey.Self))
     }
 
     override def solveConstraint(theValue: Value, key: PropKey, env: Env, binding: Map[Value, Pred], lhs: PropPred, rhs: PropPred) = (lhs, rhs) match {
@@ -89,7 +108,7 @@ trait Props { self: ForeignTypes with Queries with ForeignTypeOps with Values wi
       case E.TheValue(_) =>
         theValue
       case E.ValueRef(v) =>
-        propInLogic(v, globalEnv.selfPropKey(v.tpe))
+        propInLogic(v, PropKey.Self)
       case E.INT_Lit(x) =>
         Logic.IntValue(x)
       case E.INT_GT(l, r) =>

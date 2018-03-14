@@ -57,6 +57,4 @@ trait ValueRepos { self: ForeignTypes with Queries with Values =>
         v
       }
   }
-
-  val valueRepo = new ValueRepo
 }

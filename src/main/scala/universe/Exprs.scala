@@ -11,7 +11,7 @@ trait Exprs { self: ForeignTypes with ForeignTypeOps with Queries with Values wi
   object Expr {
     import Lang.{ Expr => E }
     val CE = CoreExpr
-    def compile(ast: Lang.Expr, env: Env, theType: TypeSym): Expr = ast match {
+    def compile(w: World, ast: Lang.Expr, env: Env, theType: TypeSym): Expr = ast match {
       case E.TheValue =>
         CE.TheValue(theType)
       case E.Ident(name) =>
@@ -21,9 +21,9 @@ trait Exprs { self: ForeignTypes with ForeignTypeOps with Queries with Values wi
       case E.LitInt(value) =>
         CE.INT_Lit(value)
       case E.Op(lhs, op, rhs) =>
-        val l = compile(lhs, env, theType)
-        val r = compile(rhs, env, theType)
-        env.findOp(l.tpe, op).apply(l, r)
+        val l = compile(w, lhs, env, theType)
+        val r = compile(w, rhs, env, theType)
+        w.findOp(l.tpe, op).apply(l, r)
     }
   }
   sealed abstract class CoreExpr extends Expr {

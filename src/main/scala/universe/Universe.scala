@@ -20,7 +20,7 @@ trait Universe extends AnyRef
   with TemplateRepos
   with Solvers
   with Debugging {
-  def toAST(t: Tree): Seq[AST.CTODef]
+  def toAST(valueRepo: ValueRepo, t: Tree): Seq[AST.CTODef]
   def reportError(pos: Pos, msg: String): Unit
 
   private[this] def unk(t: AST): Nothing =
@@ -28,15 +28,17 @@ trait Universe extends AnyRef
   private[this] def dprint(s: String) = if (query.isDebugMode) println(s)
 
   def checkRefinements(root: Tree): Unit = {
-    val ctos = toAST(root)
+    val ctos = toAST(world.values, root)
     ctos.foreach(analyzeCTO)
   }
 
+  lazy val world = new World
+
   def analyzeCTO(cto: AST.CTODef): Unit = {
     dprint(s"Analyzing CTO: ${cto.pretty.toString(0)}")
-    val graph = cto.impl.foldLeft(Graph.build(buildEnv(Map.empty))) { (g, i) => buildGraph(g, i, false) }
+    val graph = cto.impl.foldLeft(Graph.build(Env.empty)) { (g, i) => buildGraph(g, i, false) }
 
-    def pos(v: Value) = valueRepo.getPos(v) match {
+    def pos(v: Value) = world.values.getPos(v) match {
       case Some(p) =>
         s"${query.lineNum(p)}:${query.columnNum(p)}"
       case None =>
@@ -72,10 +74,10 @@ trait Universe extends AnyRef
       dprint(f"${pos(c.focus)}%-7s $c")
     }
 
-    val conflicts = Solver.solve(inferred)
+    val conflicts = new Solver(world).solve(inferred)
     conflicts.foreach { c =>
       dprint(s"CONFLICT at ${pos(c.focus)}: ${c.message}")
-      val p = valueRepo.getPos(c.focus) getOrElse query.emptyPos
+      val p = world.values.getPos(c.focus) getOrElse query.emptyPos
       reportError(p, c.message)
     }
   }
@@ -85,7 +87,7 @@ trait Universe extends AnyRef
 
     case AST.ValDef(sym, tpe, body) =>
       // TODO: Use default binding if public
-      val template = templateRepo.get(sym, graph.currentEnv)
+      val template = world.templates.get(sym, graph.currentEnv)
       val g = if (inLocal) graph.let(query.name(sym), template.ret) else graph
       // TODO: distinct local val and member
       body.fold(g) { b =>
@@ -98,7 +100,7 @@ trait Universe extends AnyRef
         graph
       } else {
         // TODO: Use default binding if public
-        val template = templateRepo.get(sym, graph.currentEnv)
+        val template = world.templates.get(sym, graph.currentEnv)
         // TODO: Handle local def
         body.fold(graph) { b =>
           buildGraph(graph, b, true)
@@ -118,14 +120,14 @@ trait Universe extends AnyRef
     case AST.Apply(self, sym, tpe, value, argss) =>
       val g = graph.pushEnv().visible(argss.flatten.map(_.value): _*)
       // TODO: register template.binding (or make global binding repo) for foreign members
-      val template = templateRepo.get(sym, g.currentEnv)
+      val template = world.templates.get(sym, g.currentEnv)
       val g1 = buildGraph(g, self, inLocal)
       val g2 = argss.flatten.foldLeft(g1) { (g, a) => buildGraph(g, a, inLocal) }
       template.apply(g2, self.value, value, argss.map(_.map(_.value)))
         .popEnv()
 
     case AST.LocalRef(sym, tpe, value) =>
-      val fv = valueRepo.functionValue(sym)
+      val fv = world.values.functionValue(sym)
       graph.subtype(fv.ret, value)
 
     case AST.Super(tpe, value) =>
@@ -134,7 +136,7 @@ trait Universe extends AnyRef
 
     case AST.IntLiteral(value, lit) =>
       graph.bind(Map(
-        value -> Pred.exactInt(value, lit))).visible(value)
+        value -> Pred.exactInt(world, value, lit))).visible(value)
 
     case AST.UnitLiteral(value) =>
       graph.bind(Map(value -> Pred.True))

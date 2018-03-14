@@ -3,7 +3,9 @@ package com.todesking.prety.universe
 import com.todesking.prety.Logic
 
 trait Solvers { self: ForeignTypes with Queries with Values with ValueRepos with Graphs with Constraints with Conflicts with Preds with Envs with Preds with Props with Worlds with Debugging =>
-  object Solver {
+  class Solver(world: World) {
+    private[this] val valueRepo = world.values
+
     def solve(g: Graph): Seq[Conflict] = {
       val (nontrivials, trivialConflicts) = solveTrivial(g.groundConstraints)
       val nontrivialConflicts = solveSMT(nontrivials, g.binding)
@@ -40,7 +42,7 @@ trait Solvers { self: ForeignTypes with Queries with Values with ValueRepos with
       val xs =
         propConstraints(c).map {
           case (key, l, r) =>
-            globalEnv.findProp(key.tpe).solveConstraint(c.focus, key, c.env, binding, l, r)
+            world.findProp(key.typeFor(c.focus.tpe)).solveConstraint(c.focus, key, c.env, binding, l, r)
         }
       val logics = xs.flatMap(_._1)
       val conflicts = xs.flatMap(_._2)

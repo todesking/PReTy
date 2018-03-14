@@ -21,8 +21,9 @@ trait Preds { self: ForeignTypes with ForeignTypeOps with Queries with Values wi
     def &(rhs: Pred): Pred
 
     def cast(newType: TypeSym): Pred = {
+      // TODO: really accept newType <:< tpe ?????
       require(tpe <:< newType || newType <:< tpe, s"$tpe !<:> $newType")
-      Pred(newType, definedProps.filterKeys { k => newType <:< k.targetType })
+      Pred(newType, definedProps.filterKeys(_.isTarget(newType)))
     }
 
     def messageString: String
@@ -33,7 +34,8 @@ trait Preds { self: ForeignTypes with ForeignTypeOps with Queries with Values wi
       ps.reduceOption(_ & _) getOrElse True
 
     case class Custom(tpe: TypeSym, ppreds: Map[PropKey, PropPred]) extends Pred {
-      require(ppreds.keys.forall(_.tpe <:< tpe))
+      require(ppreds.keys.forall(_.isTarget(tpe)))
+
       override def prop(key: PropKey) = ppreds.get(key) getOrElse PropPred.True
       override def definedProps = ppreds
       override def substitute(mapping: Map[Value, Value]) = apply(tpe, ppreds.mapValues(_.substitute(mapping)))
@@ -67,23 +69,25 @@ trait Preds { self: ForeignTypes with ForeignTypeOps with Queries with Values wi
       override def messageString = "{}"
     }
 
-    def compile(props: Map[String, Lang.Expr], targetType: TypeSym, env: Env): Pred =
+    def compile(w: World, props: Map[String, Lang.Expr], targetType: TypeSym, env: Env): Pred =
       Pred(
         targetType,
         props.map {
           case (name, expr) =>
-            val key = env.findPropKey(name, targetType)
-            val pred = env.findProp(key.tpe).buildPred(
+            val key = w.findPropKey(name, targetType)
+            val tpe = key.typeFor(targetType)
+            val pred = w.findProp(tpe).buildPred(
               expr.toString,
-              Expr.compile(expr, env, key.tpe))
+              Expr.compile(w, expr, env, tpe))
             key -> pred
         })
 
-    def exactInt(value: Value, v: Int): Pred =
+    def exactInt(w: World, value: Value, v: Int): Pred =
       compile(
+        w,
         Map("_" -> Lang.Expr.Op(Lang.Expr.TheValue, "==", Lang.Expr.LitInt(v))),
         query.types.int,
-        buildEnv(Map()))
+        Env.empty)
   }
 
   trait PropPred {

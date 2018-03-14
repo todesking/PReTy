@@ -80,10 +80,10 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
 
   private[this] lazy val annotationTpe = global.rootMirror.getRequiredClass("com.todesking.prety.refine").tpe
 
-  override def toAST(t: Tree): Seq[AST.CTODef] =
-    TreeParser.parseTop(t)
+  override def toAST(valueRepo: ValueRepo, t: Tree): Seq[AST.CTODef] =
+    new TreeParser(valueRepo).parseTop(t)
 
-  object TreeParser {
+  class TreeParser(valueRepo: ValueRepo) {
     import global.{ Tree => _, _ }
     def parseTop(t: Tree): Seq[AST.CTODef] = t match {
       case PackageDef(pid, stats) =>
@@ -118,7 +118,7 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
       case b @ Block(stats, expr) =>
         AST.Block(
           b.tpe,
-          valueRepo.newExpr("{...}", t.pos, b.tpe),
+          world.values.newExpr("{...}", t.pos, b.tpe),
           stats.flatMap(parseImpl),
           parseExpr(expr))
       case Apply(fun, args) =>
