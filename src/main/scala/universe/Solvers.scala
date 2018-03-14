@@ -58,7 +58,21 @@ trait Solvers { self: ForeignTypes with Queries with Values with Graphs with Con
 
     private[this] def runSMT(constraints: Seq[LogicConstraint]): Seq[Conflict] = {
       dprint("SMT Logic:")
-      dprint(constraints.map { x => "  " + x.toString }.mkString("\n"))
+      constraints.foreach { c =>
+        def valueString(v: Value) = s"$v: ${c.constraint.binding(v)}"
+        dprint(c.constraint.focus)
+        c.constraint.env.values.map(valueString).foreach { v =>
+          dprint("  ENV:", v)
+        }
+        c.constraint.env.conds.map(valueString).foreach { v =>
+          dprint("  COND:", v)
+        }
+        c.constraint.env.unconds.map(valueString).foreach { v =>
+          dprint("  UNCOND:", v)
+        }
+        dprint("  =>", c.constraint)
+        dprint("  =>", c.logic)
+      }
 
       implicit val ctx = SMT.newContext()
       import SMTSyntax._
