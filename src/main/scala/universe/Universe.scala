@@ -43,12 +43,6 @@ trait Universe extends AnyRef
         s"???"
     }
 
-    dprint(s"Aliases:")
-    graph.aliases.foreach {
-      case (f, t) =>
-        dprint(s"  $f -> $t")
-    }
-
     dprint(s"Initial binding:")
     graph.binding.toSeq.sortBy(_._1.id)
       .foreach {
@@ -133,9 +127,8 @@ trait Universe extends AnyRef
         .popEnv()
 
     case AST.LocalRef(sym, tpe, value) =>
-      val t = templateRepo.get(sym, graph.currentEnv)
-      graph
-        .alias(value, t.ret)
+      val fv = valueRepo.functionValue(sym)
+      graph.subtype(fv.ret, value)
 
     case AST.Super(tpe, value) =>
       // TODO: we can do something here

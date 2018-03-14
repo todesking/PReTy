@@ -17,13 +17,16 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
   }
 
   override lazy val query = new QueryAPI {
-    override def name(f: DefSym) = f.name.toString
+    override def name(f: DefSym) = f.name.decodedName.toString
     override def paramss(f: DefSym): Seq[Seq[DefSym]] = f.paramLists.map(_.map(_.asTerm))
     override def returnType(f: DefSym): TypeSym =
       if (f.isMethod) f.asMethod.returnType
       else f.selfType
+    // TODO: Rename it: In scalac, "thisType" means "this.type".
     override def thisType(f: DefSym): TypeSym =
-      f.thisType
+      if (f.owner.isType) f.owner.asType.tpe
+      else if (f.owner.isModule) f.owner.asModule.moduleClass.asType.tpe
+      else thisType(f.owner.asTerm)
     override def refinementSrc(f: DefSym) = {
       import global._
       f.annotations.collect {
@@ -50,17 +53,32 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
 
     override def <:<(lhs: TypeSym, rhs: TypeSym) = lhs <:< rhs
 
+    override def lookupMember(self: TypeSym, name: String, ret: TypeSym, paramss: Seq[Seq[TypeSym]]): DefSym = {
+      def matcher(x: global.Symbol): Boolean = {
+        if (x.isMethod) {
+          val m = x.asMethod
+          m.name.decodedName.toString == name && m.returnType == ret && paramss == m.paramLists.map(_.map(_.info))
+        } else {
+          false
+        }
+      }
+      val found = self.members.sorted.find(matcher).get.asTerm
+      found
+    }
+
     override val types = new TypesAPI {
       private[this] def get(name: String) = global.rootMirror.getRequiredClass(name).tpe
       override val nothing = get("scala.Nothing")
       override val any = get("scala.Any")
       override val int = get("scala.Int")
       override val boolean = get("scala.Boolean")
+      override def fromName(fqn: String) =
+        get(fqn)
     }
 
   }
 
-  private[this] val annotationTpe = global.rootMirror.getRequiredClass("com.todesking.prety.refine").tpe
+  private[this] lazy val annotationTpe = global.rootMirror.getRequiredClass("com.todesking.prety.refine").tpe
 
   override def toAST(t: Tree): Seq[AST.CTODef] =
     TreeParser.parseTop(t)

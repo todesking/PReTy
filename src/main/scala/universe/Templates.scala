@@ -7,7 +7,7 @@ trait Templates { self: Preds with Graphs with Values with UnknownPreds =>
     argss: Seq[Seq[(String, Value)]],
     bindings: Map[Value, Pred]) {
     override def toString =
-      s"$self.(${argss.map(_.map(_._1).mkString("(", ", ", ")")).mkString("")}) = $ret"
+      s"$self.(${argss.map(_.map { case (_, x) => s"${x}: ${bindings.get(x) getOrElse Pred.True}" }.mkString("(", ", ", ")")).mkString("")}) = $ret: ${bindings.get(ret) getOrElse Pred.True}; $bindings"
     // TODO: check acyclic
     def apply(
       graph: Graph,
@@ -21,13 +21,15 @@ trait Templates { self: Preds with Graphs with Values with UnknownPreds =>
 
       // TODO: tsort args
       argss.flatten.zip(aArgss.flatten).foldLeft {
-        graph.pushEnv()
+        graph
+          .bind(bindings)
+          .pushEnv()
           .subtype(aSelf, self)
           .let("this", aSelf)
       } {
         case (g, ((name, p), a)) =>
           g.subtype(a, p.substitute(argSub)).let(name, a)
-      }.alias(aRet, ret.substitute(argSub))
+      }.subtypeR(ret.substitute(argSub), aRet)
         .popEnv()
     }
   }

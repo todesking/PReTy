@@ -88,6 +88,8 @@ trait Solvers { self: ForeignTypes with Queries with Values with Graphs with Con
           ctx.getFormulaManager.getBooleanFormulaManager.and(conds.map { c => smtB(c) }: _*)
         case Logic.Var(_, Logic.TBool) =>
           ctx.booleanVar(l.toString)
+        case Logic.Not(l) =>
+          !smtB(l)
         case unk =>
           throw new RuntimeException(s"SMT-B: $unk")
       }
@@ -197,6 +199,7 @@ trait Solvers { self: ForeignTypes with Queries with Values with Graphs with Con
 
       implicit class BooleanFormulaOps(self: BooleanFormula)(implicit ctx: SolverContext) {
         private[this] def fm = ctx.getFormulaManager.getBooleanFormulaManager
+        def unary_!(): BooleanFormula = fm.not(self)
         def &&(rhs: BooleanFormula) = fm.and(self, rhs)
         def -->(rhs: BooleanFormula) =
           fm.implication(self, rhs)

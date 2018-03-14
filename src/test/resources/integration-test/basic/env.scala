@@ -33,7 +33,8 @@ object Env {
     // ^ {} *<= {_: _ < y}
     if(x > 3) {
       lt(x, 3)
-      // ^ {_: _ > 3} *<= {_: _ < y}
+      // ^ {} *<= {_: _ < y}
+      // TODO: show lhs as {_: _ > 3}
       lt(3, x)
     } else {
       lt(x, 3)

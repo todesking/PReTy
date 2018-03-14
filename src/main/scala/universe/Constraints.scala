@@ -16,7 +16,7 @@ trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with Unkn
     // TODO: tpe
 
     def ground(binding: Map[Value, Pred]): GroundConstraint =
-      GroundConstraint(this, lhs.reveal(binding), rhs.reveal(binding))
+      GroundConstraint(this, binding, lhs.reveal(binding), rhs.reveal(binding))
   }
   object Constraint {
     // represents lhs <= rhs
@@ -32,7 +32,7 @@ trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with Unkn
   }
 
   // TODO: s/Ground/Concrete
-  case class GroundConstraint(constraint: Constraint, lhs: Pred, rhs: Pred) {
+  case class GroundConstraint(constraint: Constraint, binding: Map[Value, Pred], lhs: Pred, rhs: Pred) {
     override def toString = constraint match {
       case Constraint.FocusLeft(e, l, r) =>
         s"$lhs *<= $rhs"
@@ -45,6 +45,7 @@ trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with Unkn
   }
 
   case class LogicConstraint(constraint: GroundConstraint, logic: Logic) {
-    override def toString = s"(${constraint.env.values.mkString(", ")})(${constraint.env.conds.mkString(", ")})(${constraint.env.unconds.mkString(",")}) => $constraint; $logic"
+    private[this] def valueString(v: Value) = s"$v: ${constraint.binding(v)}"
+    override def toString = s"(${constraint.env.values.map(valueString).mkString(", ")})(${constraint.env.conds.toSeq.map(valueString).mkString(", ")})(${constraint.env.unconds.map(valueString) mkString (",")}) => $constraint; $logic"
   }
 }

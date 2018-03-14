@@ -80,7 +80,8 @@ trait Envs { self: ForeignTypes with ForeignTypeOps with Queries with Values wit
     new GlobalEnv(
       props = Map(),
       worlds = Map(
-        query.types.int -> new IntWorld))
+        query.types.int -> new IntWorld,
+        query.types.boolean -> new BooleanWorld))
 
   def buildEnv(binding: Map[String, Value]): Env = new Env(
     globalEnv,

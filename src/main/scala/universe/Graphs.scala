@@ -1,10 +1,9 @@
 package com.todesking.prety.universe
 
-trait Graphs { self: Values with Preds with Constraints with UnknownPreds with Envs =>
+trait Graphs { self: Values with Preds with Constraints with UnknownPreds with Envs with Debugging =>
   case class Graph(
-    val constraints: Seq[Constraint],
-    val binding: Map[Value, Pred],
-    val aliases: Map[Value, UnknownPred],
+    constraints: Seq[Constraint],
+    binding: Map[Value, Pred],
     envStack: List[Env],
     currentEnv: Env) {
 
@@ -27,19 +26,15 @@ trait Graphs { self: Values with Preds with Constraints with UnknownPreds with E
     def subtype(l: Value, r: UnknownPred): Graph =
       copy(constraints = constraints :+ Constraint.FocusLeft(currentEnv, l, r))
 
+    def subtypeR(l: UnknownPred, r: Value): Graph =
+      copy(constraints = constraints :+ Constraint.FocusRight(currentEnv, l, r))
+
     def bind(vps: Map[Value, Pred]) =
       copy(binding = binding ++ vps)
 
-    def alias(from: Value, to: UnknownPred): Graph = {
-      if (aliases.contains(from))
-        throw new RuntimeException(s"Alias conflict: old=${aliases(from)}, new=${to}")
-      copy(aliases = aliases + (from -> to))
-    }
-
-    lazy val allValues = constraints.flatMap(_.values).toSet ++ aliases.keys.toSet
+    lazy val allValues = constraints.flatMap(_.values).toSet
     lazy val assignedValues = binding.keySet
     lazy val unassignedValues = allValues -- assignedValues
-    lazy val unassignedAliases = aliases.keys.filter(!binding.contains(_))
 
     // TODO: check unbound values
     def groundConstraints: Seq[GroundConstraint] =
@@ -53,20 +48,9 @@ trait Graphs { self: Values with Preds with Constraints with UnknownPreds with E
 
     @scala.annotation.tailrec
     final def infer(): Graph = {
-      val next = fillAlias().infer0()
+      val next = infer0()
       if (next.binding == this.binding) this
       else next.infer()
-    }
-
-    private def fillAlias(): Graph = {
-      val g = fillAlias0()
-      if (g.binding == this.binding) this
-      else g.fillAlias()
-    }
-
-    private[this] def fillAlias0(): Graph = {
-      val filler = unassignedAliases.flatMap { from => aliases(from).revealOpt(binding).map(from -> _) }
-      copy(binding = binding ++ filler)
     }
 
     private final def infer0(): Graph = {
@@ -74,7 +58,6 @@ trait Graphs { self: Values with Preds with Constraints with UnknownPreds with E
       val newBinding =
         unassignedValues
           .filterNot(hasUnassignedIncomingEdge)
-          .filterNot(aliases.contains)
           .foldLeft(binding) { (b, v) =>
             val p = Pred.and(incomingEdges(v).map(_.lhs).map(_.reveal(b)).toSeq)
             b + (v -> p)
@@ -83,6 +66,6 @@ trait Graphs { self: Values with Preds with Constraints with UnknownPreds with E
     }
   }
   object Graph {
-    def build(env: Env): Graph = new Graph(Seq(), Map(), Map(), Nil, env)
+    def build(env: Env): Graph = new Graph(Seq(), Map(), Nil, env)
   }
 }

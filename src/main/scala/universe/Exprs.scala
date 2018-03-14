@@ -2,7 +2,7 @@ package com.todesking.prety.universe
 
 import com.todesking.prety.Lang
 
-trait Exprs { self: ForeignTypes with Queries with Values with Envs =>
+trait Exprs { self: ForeignTypes with ForeignTypeOps with Queries with Values with Envs =>
   abstract class Expr {
     def tpe: TypeSym
     def substitute(mapping: Map[Value, Value]): Expr
@@ -30,6 +30,12 @@ trait Exprs { self: ForeignTypes with Queries with Values with Envs =>
     override def substitute(mapping: Map[Value, Value]): CoreExpr
     def children: Seq[CoreExpr]
     override def messageString = toString
+    def &(rhs: CoreExpr) = rhs match {
+      case CoreExpr.And(es) =>
+        CoreExpr.And(this +: es)
+      case e =>
+        CoreExpr.And(Seq(this, e))
+    }
   }
   object CoreExpr {
     import query.{ types => T }
@@ -42,6 +48,18 @@ trait Exprs { self: ForeignTypes with Queries with Values with Envs =>
       override def children = Seq()
     }
 
+    case class And(es: Seq[CoreExpr]) extends CoreExpr {
+      require(es.nonEmpty)
+
+      override def children = es
+      override val tpe = es.foldLeft(query.types.nothing) { (a, x) => if (a <:< x.tpe) x.tpe else a }
+      override def substitute(mapping: Map[Value, Value]) =
+        And(es.map(_.substitute(mapping)))
+      override def toString =
+        es.map(e => s"($e)").mkString(" & ")
+      override def &(rhs: CoreExpr) = And(es :+ rhs)
+    }
+
     case class TheValue(tpe: TypeSym) extends Leaf {
       override def substitute(mapping: Map[Value, Value]) = this
       override def toString = s"_"
@@ -50,7 +68,7 @@ trait Exprs { self: ForeignTypes with Queries with Values with Envs =>
       override def tpe = value.tpe
       override def substitute(mapping: Map[Value, Value]) =
         mapping.get(value).map(ValueRef.apply) getOrElse this
-      override def toString = s"ref($value)"
+      override def toString = s"value($value)"
       override def messageString = value.name
     }
 

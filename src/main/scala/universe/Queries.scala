@@ -24,12 +24,15 @@ trait Queries { self: ForeignTypes =>
 
     def <:<(lhs: TypeSym, rhs: TypeSym): Boolean
 
+    def lookupMember(self: TypeSym, name: String, ret: TypeSym, paramss: Seq[Seq[TypeSym]]): DefSym
+
     val types: TypesAPI
     trait TypesAPI {
       val nothing: TypeSym
       val any: TypeSym
       val int: TypeSym
       val boolean: TypeSym
+      def fromName(fqn: String): TypeSym
     }
   }
 }

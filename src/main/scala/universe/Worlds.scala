@@ -1,8 +1,9 @@
 package com.todesking.prety.universe
 
-import com.todesking.prety.Logic
+import com.todesking.prety.{ Logic }
 
-trait Worlds { self: ForeignTypes with Envs with ForeignTypeOps with Constraints with Queries with Values with Preds with Props with Exprs with Conflicts =>
+trait Worlds { self: ForeignTypes with Envs with ForeignTypeOps with Constraints with Queries with Values with Preds with Props with Exprs with Conflicts with Templates =>
+
   private[this] var nextVarId = 0
   def freshVar(tpe: Logic.Type): Logic.Var = {
     val v = Logic.Var(nextVarId, tpe)
@@ -18,7 +19,7 @@ trait Worlds { self: ForeignTypes with Envs with ForeignTypeOps with Constraints
       v
     }
 
-  private[this] val T = query.types
+  private[this] lazy val T = query.types
   def logicType(tpe: TypeSym): Logic.Type =
     if (tpe <:< T.int) Logic.TInt
     else if (tpe <:< T.boolean) Logic.TBool
@@ -32,9 +33,7 @@ trait Worlds { self: ForeignTypes with Envs with ForeignTypeOps with Constraints
     def toLogic(pred: PropPred, theValue: Value): Logic
   }
 
-  class IntWorld extends World {
-    override val tpe = query.types.int
-
+  abstract class CoreWorld extends World {
     override def buildPred(src: String, expr: Expr): CorePred = expr match {
       case e: CoreExpr => CorePred(src, e)
     }
@@ -93,7 +92,17 @@ trait Worlds { self: ForeignTypes with Envs with ForeignTypeOps with Constraints
         compile(l, theValue) === compile(r, theValue)
       case E.BOOL_Lit(v) =>
         L.BoolValue(v)
+      case E.And(es) =>
+        es.map(compile(_, theValue)).reduce(_ & _)
     }
+  }
+
+  class IntWorld extends CoreWorld {
+    override val tpe = query.types.int
+  }
+
+  class BooleanWorld extends CoreWorld {
+    override val tpe = query.types.boolean
   }
 
 }

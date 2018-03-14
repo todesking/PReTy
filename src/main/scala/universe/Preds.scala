@@ -32,20 +32,31 @@ trait Preds { self: ForeignTypes with ForeignTypeOps with Queries with Values wi
     def and(ps: Seq[Pred]): Pred =
       ps.reduceOption(_ & _) getOrElse True
 
-    def apply(targetType: TypeSym, ppreds: Map[PropKey, PropPred]): Pred = {
-      require(ppreds.keys.forall(_.targetType <:< targetType))
-      new Pred {
-        override def tpe = targetType
-        override def prop(key: PropKey) = ppreds.get(key) getOrElse PropPred.True
-        override def definedProps = ppreds
-        override def substitute(mapping: Map[Value, Value]) = apply(targetType, ppreds.mapValues(_.substitute(mapping)))
-        override def &(rhs: Pred) = ???
-        override def toString =
-          definedProps.map { case (k, v) => s"${k.name}: $v" }.mkString("{", ", ", "}")
-        override def messageString =
-          definedProps.map { case (k, v) => s"${k.name}: ${v.src}" }.mkString("{", ", ", "}")
+    case class Custom(tpe: TypeSym, ppreds: Map[PropKey, PropPred]) extends Pred {
+      require(ppreds.keys.forall(_.tpe <:< tpe))
+      override def prop(key: PropKey) = ppreds.get(key) getOrElse PropPred.True
+      override def definedProps = ppreds
+      override def substitute(mapping: Map[Value, Value]) = apply(tpe, ppreds.mapValues(_.substitute(mapping)))
+      override def &(rhs: Pred) = rhs match {
+        case True => this
+        case pred =>
+          require(pred.tpe <:< this.tpe)
+          val props = definedProps.keySet ++ pred.cast(tpe).definedProps.keySet
+          Pred(
+            tpe,
+            props.toSeq.map { key =>
+              key -> (prop(key) & pred.prop(key))
+            }.toMap)
       }
+      override def toString =
+        definedProps.map { case (k, v) => s"${k.name}: $v" }.mkString("{", ", ", "}")
+      override def messageString =
+        definedProps.map { case (k, v) => s"${k.name}: ${v.src}" }.mkString("{", ", ", "}")
     }
+
+    def apply(targetType: TypeSym, ppreds: Map[PropKey, PropPred]): Pred =
+      Custom(targetType, ppreds)
+
     case object True extends Pred {
       override def tpe = query.types.any
       override def prop(key: PropKey) = throw new IllegalArgumentException("True pred has no props")
@@ -78,12 +89,19 @@ trait Preds { self: ForeignTypes with ForeignTypeOps with Queries with Values wi
   trait PropPred {
     def substitute(mapping: Map[Value, Value]): PropPred
     def src: String
+    def &(rhs: PropPred): PropPred
   }
   object PropPred {
     val True = CorePred("true", CoreExpr.BOOL_Lit(true))
   }
 
   case class CorePred(src: String, expr: CoreExpr) extends PropPred {
+    override def &(rhs: PropPred): PropPred = rhs match {
+      case PropPred.True => this
+      case CorePred(s, e) =>
+        CorePred(s"($src) & ($e)", expr & e)
+      case _ => ???
+    }
     override def substitute(mapping: Map[Value, Value]): CorePred =
       CorePred(src, expr.substitute(mapping))
     override def toString = expr.toString
