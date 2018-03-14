@@ -72,8 +72,8 @@ trait Preds { self: ForeignTypes with ForeignTypeOps with Queries with Values wi
         targetType,
         props.map {
           case (name, expr) =>
-            val key = env.findProp(name, targetType)
-            val pred = env.findWorld(key.tpe).buildPred(
+            val key = env.findPropKey(name, targetType)
+            val pred = env.findProp(key.tpe).buildPred(
               expr.toString,
               Expr.compile(expr, env, key.tpe))
             key -> pred

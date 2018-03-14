@@ -1,6 +1,6 @@
 package com.todesking.prety.universe
 
-trait Envs { self: ForeignTypes with ForeignTypeOps with Queries with Values with Props with Preds with Exprs with Worlds =>
+trait Envs { self: ForeignTypes with ForeignTypeOps with Queries with Values with Props with Preds with Exprs with Props =>
 
   case class Env(
     global: GlobalEnv,
@@ -14,14 +14,14 @@ trait Envs { self: ForeignTypes with ForeignTypeOps with Queries with Values wit
     private[this] def vnf(key: String) =
       throw new RuntimeException(s"Value $key not found(env: ${binding.keys.mkString(", ")})")
 
-    def findProp(name: String, targetType: TypeSym): PropKey =
-      global.findProp(name, targetType)
+    def findPropKey(name: String, targetType: TypeSym): PropKey =
+      global.findPropKey(name, targetType)
 
     def findValue(name: String): Value =
       binding.get(name) getOrElse vnf(name)
 
-    def findWorld(tpe: TypeSym): World =
-      global.findWorld(tpe)
+    def findProp(tpe: TypeSym): Prop =
+      global.findProp(tpe)
     def findOp(tpe: TypeSym, name: String): (Expr, Expr) => Expr =
       global.findOp(tpe, name)
     def bind(mapping: Map[String, Value]): Env =
@@ -37,22 +37,22 @@ trait Envs { self: ForeignTypes with ForeignTypeOps with Queries with Values wit
   }
 
   class GlobalEnv(
-    val props: Map[String, PropKey],
-    val worlds: Map[TypeSym, World]) {
+    val propKeys: Map[String, PropKey],
+    val props: Map[TypeSym, Prop]) {
 
     private[this] def nf(kind: String, key: String) =
       throw new RuntimeException(s"$kind $key not found")
 
     def selfPropKey(tpe: TypeSym) = PropKey("_", tpe, tpe)
 
-    def findProp(name: String, targetType: TypeSym): PropKey = name match {
+    def findPropKey(name: String, targetType: TypeSym): PropKey = name match {
       case "_" =>
         selfPropKey(targetType)
       case name =>
-        props.get(name) getOrElse nf("Property", name)
+        propKeys.get(name) getOrElse nf("Property", name)
     }
-    def findWorld(tpe: TypeSym): World =
-      worlds.get(tpe) getOrElse nf("World", tpe.toString)
+    def findProp(tpe: TypeSym): Prop =
+      props.get(tpe) getOrElse nf("Prop", tpe.toString)
     def findOp(tpe: TypeSym, name: String): (Expr, Expr) => Expr = {
       import query.{ types => T }
       if (tpe <:< query.types.int)
@@ -78,10 +78,10 @@ trait Envs { self: ForeignTypes with ForeignTypeOps with Queries with Values wit
 
   lazy val globalEnv: GlobalEnv =
     new GlobalEnv(
-      props = Map(),
-      worlds = Map(
-        query.types.int -> new IntWorld,
-        query.types.boolean -> new BooleanWorld))
+      propKeys = Map(),
+      props = Map(
+        query.types.int -> new IntProp,
+        query.types.boolean -> new BooleanProp))
 
   def buildEnv(binding: Map[String, Value]): Env = new Env(
     globalEnv,
