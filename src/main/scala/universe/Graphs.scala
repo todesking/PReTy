@@ -60,6 +60,7 @@ trait Graphs { self: Values with Preds with Constraints with UnknownPreds with E
           .filterNot(hasUnassignedIncomingEdge)
           .foldLeft(binding) { (b, v) =>
             val p = Pred.and(incomingEdges(v).map(_.lhs).map(_.reveal(b)).toSeq)
+            dprint(s"INFER $v: $p")
             b + (v -> p)
           }
       copy(binding = newBinding)

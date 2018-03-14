@@ -17,16 +17,19 @@ trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with Unkn
 
     def ground(binding: Map[Value, Pred]): GroundConstraint =
       GroundConstraint(this, binding, lhs.reveal(binding), rhs.reveal(binding))
+
+    def arrowString: String
+    override def toString = s"$lhs $arrowString $rhs"
   }
   object Constraint {
     // represents lhs <= rhs
     sealed abstract class LE extends Constraint
     case class FocusLeft(env: Env, lhs: UnknownPred.OfValue, rhs: UnknownPred) extends LE {
-      override def toString = s"$lhs *<= $rhs"
+      override def arrowString = "*<="
       override def focus = lhs.value
     }
     case class FocusRight(env: Env, lhs: UnknownPred, rhs: UnknownPred.OfValue) extends LE {
-      override def toString = s"$lhs <=* $rhs"
+      override def arrowString = "<=*"
       override def focus = rhs.value
     }
   }
@@ -35,13 +38,13 @@ trait Constraints { self: ForeignTypes with ForeignTypeOps with Values with Unkn
   case class GroundConstraint(constraint: Constraint, binding: Map[Value, Pred], lhs: Pred, rhs: Pred) {
     override def toString = constraint match {
       case Constraint.FocusLeft(e, l, r) =>
-        s"$lhs *<= $rhs"
+        s"(${constraint.focus}) $lhs *<= $rhs"
       case Constraint.FocusRight(e, l, r) =>
-        s"$lhs <=* $rhs"
+        s"(${constraint.focus}) $lhs <=* $rhs"
     }
     def focus: Value = constraint.focus
     def env = constraint.env
-    def messageString = s"${lhs.messageString} *<= ${rhs.messageString}"
+    def messageString = s"${lhs.messageString} ${constraint.arrowString} ${rhs.messageString}"
   }
 
   case class LogicConstraint(constraint: GroundConstraint, logic: Logic) {
