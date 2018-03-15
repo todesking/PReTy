@@ -31,7 +31,6 @@ object Logic {
   sealed abstract class Type
   case object TInt extends Type
   case object TBool extends Type
-  case object TString extends Type
 
   def and(ls: Seq[Logic]): Logic = ls match {
     case Seq() => True
@@ -57,7 +56,6 @@ object Logic {
       val t = tpe match {
         case TInt => "i"
         case TBool => "b"
-        case TString => "s"
       }
       s"${t}_$id"
     }

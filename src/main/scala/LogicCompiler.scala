@@ -25,7 +25,6 @@ class LogicCompiler(solverContext: SolverContext) {
   def anyVar(v: Logic.Var): Formula = v.tpe match {
     case Logic.TInt => intVar(v)
     case Logic.TBool => booleanVar(v)
-    case _ => ???
   }
 
   def compileInteger(l: Logic): IntegerFormula = l match {
