@@ -1,6 +1,7 @@
 package com.todesking.prety.universe
 
 import com.todesking.prety.Logic
+import com.todesking.prety.SMT
 
 trait Solvers { self: ForeignTypes with Queries with Values with ValueRepos with Graphs with Constraints with Conflicts with Preds with Envs with Preds with Props with Worlds with Debugging =>
   class Solver(world: World) {
@@ -85,8 +86,9 @@ trait Solvers { self: ForeignTypes with Queries with Values with ValueRepos with
         dprint("  =>", c.logic)
       }
 
-      implicit val ctx = SMT.newContext()
-      import SMTSyntax._
+      val smt = SMT.newContext()
+      implicit val ctx = smt.ctx
+      import SMT.Syntax._
 
       import org.sosy_lab.java_smt.api.NumeralFormula.IntegerFormula
       import org.sosy_lab.java_smt.api.BooleanFormula
@@ -136,7 +138,7 @@ trait Solvers { self: ForeignTypes with Queries with Values with ValueRepos with
       }
 
       val conflicts =
-        withResource(ctx.newProverEnvironment()) { prover =>
+        smt.withProver() { prover =>
           dprint("Compiled SMT:")
           constraints.foreach { c =>
             val l = c.logic
@@ -167,7 +169,7 @@ trait Solvers { self: ForeignTypes with Queries with Values with ValueRepos with
             }
           }
         }
-      SMT.shutdown.requestShutdown("die")
+      smt.shutdown()
       conflicts
     }
     private[this] def withResource[A <: AutoCloseable, B](r: A)(f: A => B): B =
@@ -176,61 +178,5 @@ trait Solvers { self: ForeignTypes with Queries with Values with ValueRepos with
       } finally {
         r.close()
       }
-
-    object SMT {
-      import org.sosy_lab.common.{ ShutdownManager }
-      import org.sosy_lab.common.configuration.Configuration
-      import org.sosy_lab.common.log.BasicLogManager
-      import org.sosy_lab.java_smt.SolverContextFactory
-
-      val config = Configuration.builder.build()
-      val logger = BasicLogManager.create(config)
-      val shutdown = ShutdownManager.create()
-
-      def newContext() = SolverContextFactory.createSolverContext(
-        config,
-        logger,
-        shutdown.getNotifier(),
-        SolverContextFactory.Solvers.PRINCESS)
-    }
-    object SMTSyntax {
-      import org.sosy_lab.java_smt.api.SolverContext
-      import org.sosy_lab.java_smt.api.NumeralFormula
-      import NumeralFormula.IntegerFormula
-      import org.sosy_lab.java_smt.api.BooleanFormula
-
-      import scala.language.implicitConversions
-
-      implicit def IntToFormula(i: Int)(implicit ctx: SolverContext) =
-        ctx.lit(i)
-
-      implicit class ContextOps(self: SolverContext) {
-        private[this] def fm = self.getFormulaManager
-        def intVar(name: String) =
-          fm.getIntegerFormulaManager().makeVariable(name)
-        def booleanVar(name: String) =
-          fm.getBooleanFormulaManager().makeVariable(name)
-        def lit(v: Int) =
-          fm.getIntegerFormulaManager().makeNumber(v.toLong)
-      }
-
-      implicit class NumeralFormulaOps(self: IntegerFormula)(implicit ctx: SolverContext) {
-        private[this] def ifm = ctx.getFormulaManager.getIntegerFormulaManager
-        def +(rhs: IntegerFormula) = ifm.add(self, rhs)
-        def >(rhs: IntegerFormula) = ifm.greaterThan(self, rhs)
-        def <(rhs: IntegerFormula) = ifm.lessThan(self, rhs)
-        def ===(rhs: IntegerFormula) = ifm.equal(self, rhs)
-      }
-
-      implicit class BooleanFormulaOps(self: BooleanFormula)(implicit ctx: SolverContext) {
-        private[this] def fm = ctx.getFormulaManager.getBooleanFormulaManager
-        def unary_!(): BooleanFormula = fm.not(self)
-        def &&(rhs: BooleanFormula) = fm.and(self, rhs)
-        def -->(rhs: BooleanFormula) =
-          fm.implication(self, rhs)
-      }
-      implicit def BooleanToFormula(b: Boolean)(implicit ctx: SolverContext): BooleanFormula =
-        ctx.getFormulaManager.getBooleanFormulaManager.makeBoolean(b)
-    }
   }
 }
