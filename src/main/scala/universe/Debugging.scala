@@ -1,6 +1,6 @@
 package com.todesking.prety.universe
 
-trait Debugging { self: Queries =>
+trait Debugging { self: ForeignTypes =>
   def dprint(s: Any*): Unit =
     if (query.isDebugMode) {
       val content = s.mkString(" ")

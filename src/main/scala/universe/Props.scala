@@ -2,7 +2,7 @@ package com.todesking.prety.universe
 
 import com.todesking.prety.Logic
 
-trait Props { self: ForeignTypes with Queries with ForeignTypeOps with Values with Preds with Exprs with Conflicts with Envs =>
+trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflicts with Envs =>
   sealed abstract class PropKey {
     def isTarget(t: TypeSym): Boolean
     def typeFor(t: TypeSym): TypeSym

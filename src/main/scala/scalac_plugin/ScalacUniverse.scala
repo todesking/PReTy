@@ -118,7 +118,7 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
       case b @ Block(stats, expr) =>
         AST.Block(
           b.tpe,
-          world.values.newExpr("{...}", t.pos, b.tpe),
+          valueRepo.newExpr("{...}", t.pos, b.tpe),
           stats.flatMap(parseImpl),
           parseExpr(expr))
       case Apply(fun, args) =>

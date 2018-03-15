@@ -2,7 +2,7 @@ package com.todesking.prety.universe
 
 import com.todesking.prety.Lang
 
-trait Exprs { self: ForeignTypes with ForeignTypeOps with Queries with Values with Envs =>
+trait Exprs { self: ForeignTypes with Values with Envs with Worlds =>
   abstract class Expr {
     def tpe: TypeSym
     def substitute(mapping: Map[Value, Value]): Expr

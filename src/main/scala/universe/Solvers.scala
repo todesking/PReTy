@@ -4,7 +4,7 @@ import com.todesking.prety.Logic
 import com.todesking.prety.SMT
 import com.todesking.prety.LogicCompiler
 
-trait Solvers { self: ForeignTypes with Queries with Values with ValueRepos with Graphs with Constraints with Conflicts with Preds with Envs with Preds with Props with Worlds with Debugging =>
+trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with Conflicts with Preds with Envs with Preds with Props with Worlds with Debugging =>
   class Solver(world: World) {
     private[this] val valueRepo = world.values
 

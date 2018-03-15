@@ -1,6 +1,6 @@
 package com.todesking.prety.universe
 
-trait Graphs { self: Values with Preds with Constraints with UnknownPreds with Envs with Debugging =>
+trait Graphs { self: Values with Preds with Constraints with Envs with Debugging =>
   case class Graph(
     constraints: Seq[Constraint],
     binding: Map[Value, Pred],
