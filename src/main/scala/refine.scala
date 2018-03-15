@@ -1,3 +1,9 @@
 package com.todesking.prety
 
-class refine(src: String) extends scala.annotation.StaticAnnotation
+import scala.annotation.StaticAnnotation
+
+class refine(src: String) extends StaticAnnotation
+
+object refine {
+  class proxy(forClass: String) extends StaticAnnotation
+}

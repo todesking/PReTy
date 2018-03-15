@@ -7,6 +7,7 @@ trait Universe extends AnyRef
   with Values
   with ASTs
   with Preds
+  with Macros
   with Worlds
   with Envs
   with Exprs
@@ -21,7 +22,7 @@ trait Universe extends AnyRef
   def reportError(pos: Pos, msg: String): Unit
 
   def checkRefinements(root: Tree): Unit = {
-    val world = new World
+    val world = World.buildDefault()
     def pos(v: Value) = world.values.getPos(v) match {
       case Some(p) =>
         s"${query.lineNum(p)}:${query.columnNum(p)}"

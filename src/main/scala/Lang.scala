@@ -21,21 +21,26 @@ object Lang {
     def props_full = ('{' ~> repsep(prop, ",")) <~ '}'
     def props_one = expr ^^ { e => Seq("_" -> e) }
     def prop = name ~ (':' ~> expr) ^^ { case n ~ p => (n, p) }
-    def expr = expr1 ~ (op ~ expr1).? ^^ {
+    def expr: Parser[Expr] = expr1 ~ (op ~ expr1).? ^^ {
       case lhs ~ Some(op ~ rhs) => Expr.Op(lhs, op, rhs)
       case lhs ~ None => lhs
     }
-    def expr1 = measure | lit
-    def measure = (the_value | ident) ~ rep('.' ~> name) ^^ {
+    def expr1 = lit | ((ref ~ app.?) ^^ {
+      case e ~ Some(args) => Expr.App(e, args)
+      case e ~ None => e
+    })
+    def ref = (the_value | ident | makro) ~ rep('.' ~> name) ^^ {
       case id ~ names =>
         names.foldLeft[Expr](id) { (m, id) => Expr.Select(m, id) }
     }
+    def makro = "@" ~> name ^^ { id => Expr.MacroRef(id) }
+    def app = ('(' ~> repsep(expr, ",")) <~ ')'
     def ident = name ^^ { id => Expr.Ident(id) }
     def the_value = "_" ^^ { _ => Expr.TheValue }
     def name = "[a-zA-Z_][a-zA-Z_0-9]*".r
     def op = "[-+<>:*/=]+".r
     def lit = int
-    def int = "[0-9]|[1-9][0-9]*".r ^^ { v => Expr.LitInt(v.toInt) }
+    def int = "0|[1-9][0-9]*".r ^^ { v => Expr.LitInt(v.toInt) }
   }
 
   case class Def(props: Map[String, Expr])
@@ -61,6 +66,14 @@ object Lang {
 
     case class Op(lhs: Expr, op: String, rhs: Expr) extends Expr(s"$lhs $op $rhs") {
       override def names = lhs.names ++ rhs.names
+    }
+
+    case class MacroRef(name: String) extends Expr(s"@$name") {
+      override def names = Set()
+    }
+
+    case class App(expr: Expr, args: Seq[Expr]) extends Expr(s"$expr(${args.mkString(", ")})") {
+      override def names = expr.names ++ args.flatMap(_.names)
     }
   }
 }

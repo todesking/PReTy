@@ -2,7 +2,7 @@ package com.todesking.prety.universe
 
 import com.todesking.prety.Lang
 
-trait Exprs { self: ForeignTypes with Values with Envs with Worlds =>
+trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros =>
   abstract class Expr {
     def tpe: TypeSym
     def substitute(mapping: Map[Value, Value]): Expr
@@ -11,19 +11,37 @@ trait Exprs { self: ForeignTypes with Values with Envs with Worlds =>
   object Expr {
     import Lang.{ Expr => E }
     val CE = CoreExpr
-    def compile(w: World, ast: Lang.Expr, env: Env, theType: TypeSym): Expr = ast match {
+    def compile(w: World, ast: Lang.Expr, env: Env, theType: TypeSym): Expr =
+      compile0(w, ast, env, theType) match {
+        case Right(e) => e
+        case Left(m) => m.expr
+      }
+    private[this] def compile0(w: World, ast: Lang.Expr, env: Env, theType: TypeSym): Either[Macro, Expr] = ast match {
       case E.TheValue =>
-        CE.TheValue(theType)
+        Right(CE.TheValue(theType))
       case E.Ident(name) =>
-        CE.ValueRef(env.findValue(name))
-      case E.Select(expr, name) =>
-        ???
+        Right(CE.ValueRef(env.findValue(name)))
       case E.LitInt(value) =>
-        CE.INT_Lit(value)
+        Right(CE.INT_Lit(value))
       case E.Op(lhs, op, rhs) =>
         val l = compile(w, lhs, env, theType)
         val r = compile(w, rhs, env, theType)
-        w.findOp(l.tpe, op).apply(l, r)
+        Right(w.findOp(l.tpe, op).apply(l, r))
+      case E.MacroRef(name) =>
+        Left(w.findMacro(name))
+      case E.Select(expr, name) =>
+        compile0(w, expr, env, theType) match {
+          case Left(m) => m.select(name)
+          case Right(e) =>
+            throw new RuntimeException(s"Invalid select: $ast")
+        }
+      case E.App(expr, args) =>
+        compile0(w, expr, env, theType) match {
+          case Left(m) =>
+            m.apply(args.map(compile(w, _, env, theType)))
+          case Right(e) =>
+            throw new RuntimeException(s"Invalid app: $ast")
+        }
     }
   }
   sealed abstract class CoreExpr extends Expr {
