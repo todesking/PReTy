@@ -120,36 +120,20 @@ trait Solvers { self: ForeignTypes with Queries with Values with ValueRepos with
         case unk =>
           throw new RuntimeException(s"SMT-B: $unk")
       }
-      def fvars(l: Logic): Set[Logic.Var] = l match {
-        case Logic.Eq(l, r) =>
-          fvars(l) ++ fvars(r)
-        case Logic.Gt(l, r) =>
-          fvars(l) ++ fvars(r)
-        case Logic.Lt(l, r) =>
-          fvars(l) ++ fvars(r)
-        case Logic.Implie(l, r) =>
-          fvars(l) ++ fvars(r)
-        case Logic.And(xs) =>
-          xs.flatMap(fvars).toSet
-        case v @ Logic.Var(_, _, _) =>
-          Set(v)
-        case _ =>
-          Set()
-      }
 
       val conflicts =
         smt.withProver() { prover =>
           dprint("Compiled SMT:")
           constraints.foreach { c =>
             val l = c.logic
-            val fvs = fvars(l)
+            val fvs = l.vars
             dprint(s"  forall ${fvs.mkString(", ")}. $l")
           }
 
           constraints.flatMap { c =>
             val l = c.logic
             import scala.collection.JavaConverters._
-            val fvs = fvars(l)
+            val fvs = l.vars
             val smt = smtB(l)
             val quantified =
               ctx.getFormulaManager.getQuantifiedFormulaManager.forall(

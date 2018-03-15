@@ -18,6 +18,8 @@ sealed abstract class Logic {
   }
   def |(rhs: Logic) = Logic.Or(Seq(this, rhs))
   def -->(rhs: Logic) = Logic.Implie(this, rhs)
+
+  def vars: Set[Logic.Var]
 }
 object Logic {
   // TODO: claeess per type
@@ -32,7 +34,20 @@ object Logic {
     case many => And(many)
   }
 
-  case class Var(id: Int, tpe: Type, name: String) extends Logic {
+  sealed abstract class Leaf extends Logic {
+    override def vars = Set()
+  }
+  sealed abstract class BinOp extends Logic {
+    val lhs: Logic
+    val rhs: Logic
+    override def vars = lhs.vars ++ rhs.vars
+  }
+  sealed abstract class ManyOp extends Logic {
+    val items: Seq[Logic]
+    override def vars = items.flatMap(_.vars).toSet
+  }
+
+  case class Var(id: Int, tpe: Type, name: String) extends Leaf {
     def varName = {
       val t = tpe match {
         case TInt => "i"
@@ -42,12 +57,13 @@ object Logic {
       s"${t}_$id"
     }
     override def toString = s"$varName($name)"
+    override def vars = Set(this)
   }
 
-  case class IntValue(value: Int) extends Logic {
+  case class IntValue(value: Int) extends Leaf {
     override def toString = value.toString
   }
-  case class BoolValue(value: Boolean) extends Logic {
+  case class BoolValue(value: Boolean) extends Leaf {
     override def toString = value.toString
     override def &(rhs: Logic) =
       if (value) rhs
@@ -60,36 +76,40 @@ object Logic {
         None
     }
   }
-  case class StringValue(value: String) extends Logic
+  case class StringValue(value: String) extends Leaf
 
   val True = BoolValue(true)
   val False = BoolValue(false)
 
-  case class App(fun: String, args: Seq[Logic]) extends Logic
-
   // TODO: INT_*
-  case class Eq(lhs: Logic, rhs: Logic) extends Logic {
+  case class Eq(lhs: Logic, rhs: Logic) extends BinOp {
     override def toString = s"$lhs == $rhs"
   }
-  case class Lt(lhs: Logic, rhs: Logic) extends Logic {
+  case class Lt(lhs: Logic, rhs: Logic) extends BinOp {
     override def toString = s"$lhs < $rhs"
   }
-  case class Le(lhs: Logic, rhs: Logic) extends Logic
-  case class Gt(lhs: Logic, rhs: Logic) extends Logic {
+  case class Le(lhs: Logic, rhs: Logic) extends BinOp
+  case class Gt(lhs: Logic, rhs: Logic) extends BinOp {
     override def toString = s"$lhs > $rhs"
   }
-  case class Ge(lhs: Logic, rhs: Logic) extends Logic
+  case class Ge(lhs: Logic, rhs: Logic) extends BinOp
 
-  case class Neg(expr: Logic) extends Logic
-  case class Plus(lhs: Logic, rhs: Logic) extends Logic
-  case class Minus(lhs: Logic, rhs: Logic) extends Logic
-
-  case class Not(expr: Logic) extends Logic
-  case class And(exprs: Seq[Logic]) extends Logic {
-    override def toString = exprs.mkString("(", " & ", ")")
+  case class Neg(expr: Logic) extends Logic {
+    override def vars = expr.vars
   }
-  case class Or(exprs: Seq[Logic]) extends Logic
-  case class Implie(lhs: Logic, rhs: Logic) extends Logic {
+  case class Plus(lhs: Logic, rhs: Logic) extends BinOp
+  case class Minus(lhs: Logic, rhs: Logic) extends BinOp
+
+  case class Not(expr: Logic) extends Logic {
+    override def vars = expr.vars
+  }
+  case class And(items: Seq[Logic]) extends ManyOp {
+    override def toString = items.mkString("(", " & ", ")")
+  }
+  case class Or(items: Seq[Logic]) extends ManyOp {
+    override def toString = items.mkString("(", " | ", ")")
+  }
+  case class Implie(lhs: Logic, rhs: Logic) extends BinOp {
     override def toString = s"{ $lhs }-->{ $rhs }"
   }
 }
