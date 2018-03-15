@@ -19,7 +19,12 @@ sealed abstract class Logic {
   def |(rhs: Logic) = Logic.Or(Seq(this, rhs))
   def -->(rhs: Logic) = Logic.Implie(this, rhs)
 
+  // TODO: rename: freeVars
   def vars: Set[Logic.Var]
+
+  def universalQuantifiedForm: Logic =
+    if (vars.isEmpty) this
+    else Logic.Forall(this.vars, this)
 }
 object Logic {
   // TODO: claeess per type
@@ -111,5 +116,9 @@ object Logic {
   }
   case class Implie(lhs: Logic, rhs: Logic) extends BinOp {
     override def toString = s"{ $lhs }-->{ $rhs }"
+  }
+  case class Forall(params: Set[Logic.Var], expr: Logic) extends Logic {
+    override def vars = expr.vars -- params
+    override def toString = s"forall ${params.toSeq.map(_.toString).sorted.mkString(", ")}. $expr"
   }
 }

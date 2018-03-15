@@ -1,8 +1,21 @@
 package com.todesking.prety
 
-import org.sosy_lab.java_smt.api.SolverContext
-import org.sosy_lab.java_smt.api.ProverEnvironment
 import org.sosy_lab.common.ShutdownManager
+import org.sosy_lab.common.log.BasicLogManager
+import org.sosy_lab.common.configuration.Configuration
+
+import org.sosy_lab.java_smt.api.SolverContext
+import org.sosy_lab.java_smt.SolverContextFactory
+import org.sosy_lab.java_smt.api.ProverEnvironment
+
+import org.sosy_lab.java_smt.api.Formula
+import org.sosy_lab.java_smt.api.NumeralFormula
+import NumeralFormula.IntegerFormula
+import org.sosy_lab.java_smt.api.BooleanFormula
+
+import scala.language.implicitConversions
+
+import scala.collection.JavaConverters._
 
 class SMT(val ctx: SolverContext, val shutdownManager: ShutdownManager) {
   def shutdown(): Unit =
@@ -19,10 +32,6 @@ class SMT(val ctx: SolverContext, val shutdownManager: ShutdownManager) {
 }
 
 object SMT {
-  import org.sosy_lab.common.configuration.Configuration
-  import org.sosy_lab.common.log.BasicLogManager
-  import org.sosy_lab.java_smt.SolverContextFactory
-
   val config = Configuration.builder.build()
   val logger = BasicLogManager.create(config)
 
@@ -38,11 +47,6 @@ object SMT {
   }
 
   object Syntax {
-    import org.sosy_lab.java_smt.api.NumeralFormula
-    import NumeralFormula.IntegerFormula
-    import org.sosy_lab.java_smt.api.BooleanFormula
-
-    import scala.language.implicitConversions
 
     implicit def IntToFormula(i: Int)(implicit ctx: SolverContext) =
       ctx.lit(i)
@@ -55,6 +59,8 @@ object SMT {
         fm.getBooleanFormulaManager().makeVariable(name)
       def lit(v: Int) =
         fm.getIntegerFormulaManager().makeNumber(v.toLong)
+      def forall(vars: Seq[Formula], expr: BooleanFormula): BooleanFormula =
+        self.getFormulaManager.getQuantifiedFormulaManager.forall(vars.asJava, expr)
     }
 
     implicit class NumeralFormulaOps(self: IntegerFormula)(implicit ctx: SolverContext) {

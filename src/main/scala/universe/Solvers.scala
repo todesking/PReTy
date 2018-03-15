@@ -2,6 +2,7 @@ package com.todesking.prety.universe
 
 import com.todesking.prety.Logic
 import com.todesking.prety.SMT
+import com.todesking.prety.LogicCompiler
 
 trait Solvers { self: ForeignTypes with Queries with Values with ValueRepos with Graphs with Constraints with Conflicts with Preds with Envs with Preds with Props with Worlds with Debugging =>
   class Solver(world: World) {
@@ -47,7 +48,7 @@ trait Solvers { self: ForeignTypes with Queries with Values with ValueRepos with
         }
       val logics = xs.flatMap(_._1)
       val conflicts = xs.flatMap(_._2)
-      (LogicConstraint(c, Logic.and(logics)), conflicts)
+      (LogicConstraint(c, Logic.and(logics).universalQuantifiedForm), conflicts)
     }
 
     private[this] def propConstraints(c: GroundConstraint): Seq[(PropKey, PropPred, PropPred)] = {
@@ -87,66 +88,17 @@ trait Solvers { self: ForeignTypes with Queries with Values with ValueRepos with
       }
 
       val smt = SMT.newContext()
-      implicit val ctx = smt.ctx
-      import SMT.Syntax._
-
-      import org.sosy_lab.java_smt.api.NumeralFormula.IntegerFormula
-      import org.sosy_lab.java_smt.api.BooleanFormula
-      def smtI(l: Logic): IntegerFormula = l match {
-        case Logic.IntValue(v) =>
-          ctx.lit(v)
-        case v @ Logic.Var(_, Logic.TInt, name) =>
-          ctx.intVar(v.varName)
-        case unk =>
-          throw new RuntimeException(s"SMT-I: $unk")
-      }
-      def smtB(l: Logic): BooleanFormula = l match {
-        case Logic.BoolValue(v) =>
-          v
-        case Logic.Eq(l, r) =>
-          smtI(l) === smtI(r)
-        case Logic.Gt(l, r) =>
-          smtI(l) > smtI(r)
-        case Logic.Lt(l, r) =>
-          smtI(l) < smtI(r)
-        case Logic.Implie(l, r) =>
-          smtB(l) --> smtB(r)
-        case Logic.And(conds) =>
-          ctx.getFormulaManager.getBooleanFormulaManager.and(conds.map { c => smtB(c) }: _*)
-        case v @ Logic.Var(_, Logic.TBool, name) =>
-          ctx.booleanVar(v.varName)
-        case Logic.Not(l) =>
-          !smtB(l)
-        case unk =>
-          throw new RuntimeException(s"SMT-B: $unk")
-      }
+      val compiler = new LogicCompiler(smt.ctx)
 
       val conflicts =
         smt.withProver() { prover =>
-          dprint("Compiled SMT:")
-          constraints.foreach { c =>
-            val l = c.logic
-            val fvs = l.vars
-            dprint(s"  forall ${fvs.mkString(", ")}. $l")
-          }
-
           constraints.flatMap { c =>
-            val l = c.logic
-            import scala.collection.JavaConverters._
-            val fvs = l.vars
-            val smt = smtB(l)
-            val quantified =
-              ctx.getFormulaManager.getQuantifiedFormulaManager.forall(
-                fvs.toSeq.map {
-                  case v @ Logic.Var(_, Logic.TInt, name) =>
-                    ctx.getFormulaManager.getIntegerFormulaManager.makeVariable(v.varName)
-                }.asJava,
-                smt)
-            prover.push(quantified)
+            val compiled = compiler.compileBoolean(c.logic)
+            prover.push(compiled)
             val unsat = prover.isUnsat()
             prover.pop()
             if (unsat) {
-              dprint(s"Unsat: $l; $quantified")
+              dprint(s"Unsat: ${c.logic}; $compiled")
               Some(Conflict(c.constraint))
             } else {
               None
@@ -156,11 +108,5 @@ trait Solvers { self: ForeignTypes with Queries with Values with ValueRepos with
       smt.shutdown()
       conflicts
     }
-    private[this] def withResource[A <: AutoCloseable, B](r: A)(f: A => B): B =
-      try {
-        f(r)
-      } finally {
-        r.close()
-      }
   }
 }
