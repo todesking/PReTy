@@ -98,9 +98,7 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
         val names =
           t.typeSymbol.annotations.collect {
             case an if an.tree.tpe <:< proxyAnnotationType =>
-              an.tree.children.tail(0) match {
-                case ru.Literal(ru.Constant(src: String)) => src
-              }
+              an.tree.children.tail(0).asInstanceOf[ru.Literal].value.asInstanceOf[String]
           }
         if(names.size > 1) throw new RuntimeException(s"too many proxy names: $names")
         names.headOption
@@ -113,9 +111,7 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
         val names =
           m.annotations.collect {
             case an if an.tree.tpe <:< refineAnnotationType =>
-              an.tree.children.tail(0) match {
-                case ru.Literal(ru.Constant(src: String)) => src
-              }
+              an.tree.children.tail(0).asInstanceOf[ru.Literal].value.asInstanceOf[String]
           }
         names
       }
