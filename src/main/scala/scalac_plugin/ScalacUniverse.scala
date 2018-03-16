@@ -16,6 +16,12 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
     global.reporter.error(pos, msg)
   }
 
+  object Annotations {
+    private[this] def load(name: String) = global.rootMirror.getRequiredClass(name).tpe
+    val refine = load("com.todesking.prety.refine")
+    val refineSimple = load("com.todesking.prety.refine.simple")
+  }
+
   override lazy val query = new QueryAPI {
     override def name(f: DefSym) = f.name.decodedName.toString
     override def paramss(f: DefSym): Seq[Seq[DefSym]] = f.paramLists.map(_.map(_.asTerm))
@@ -27,14 +33,16 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
       if (f.owner.isType) f.owner.asType.tpe
       else if (f.owner.isModule) f.owner.asModule.moduleClass.asType.tpe
       else thisType(f.owner.asTerm)
-    override def refinementSrc(f: DefSym) = {
-      import global._
+    override def refineAnnotations(f: DefSym) = {
       f.annotations.collect {
-        case global.Annotation(tpe, sargs, jargs) if tpe <:< annotationTpe =>
-          if (sargs.size != 1) throw new AssertionError(s"Expected exact 1 arguments: $sargs")
-          sargs(0) match {
-            case Literal(Constant(src: String)) => src
-          }
+        case an if an.tpe <:< Annotations.refine =>
+          an.tree.children.tail(0).asInstanceOf[global.Literal].value.asInstanceOf[global.Constant].value.asInstanceOf[String]
+      }
+    }
+    override def refineSimpleAnnotations(f: DefSym) = {
+      f.annotations.collect {
+        case an if an.tpe <:< Annotations.refineSimple =>
+          an.tree.children.tail(0).asInstanceOf[global.Literal].value.asInstanceOf[global.Constant].value.asInstanceOf[String]
       }
     }
     override def pos(f: DefSym) = f.pos
@@ -57,7 +65,9 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
       def matcher(x: global.Symbol): Boolean = {
         if (x.isMethod) {
           val m = x.asMethod
-          m.name.decodedName.toString == name && m.returnType == ret && paramss == m.paramLists.map(_.map(_.info))
+          m.name.decodedName.toString == name &&
+            m.returnType <:< ret &&
+            paramss.zip(m.paramLists).forall { case (ls, rs) => ls.zip(rs.map(_.info)).forall { case (l, r) => l <:< r } }
         } else {
           false
         }
@@ -76,8 +86,6 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
     }
 
   }
-
-  private[this] lazy val annotationTpe = global.rootMirror.getRequiredClass("com.todesking.prety.refine").tpe
 
   override def toAST(valueRepo: ValueRepo, t: Tree): Seq[AST.CTODef] =
     new TreeParser(valueRepo).parseTop(t)

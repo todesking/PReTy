@@ -119,6 +119,8 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
         compile(l, theValue) === compile(r, theValue)
       case E.BOOL_Lit(v) =>
         L.BoolValue(v)
+      case E.BOOL_EQ(l, r) =>
+        compile(l, theValue) === compile(r, theValue)
       case E.And(es) =>
         es.map(compile(_, theValue)).reduce(_ & _)
     }

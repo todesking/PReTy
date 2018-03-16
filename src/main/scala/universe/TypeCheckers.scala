@@ -54,7 +54,7 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
 
       case AST.ValDef(sym, tpe, body) =>
         // TODO: Use default binding if public
-        val template = world.templates.get(sym, graph.currentEnv)
+        val template = if (inLocal) world.templates.registerLocal(sym, graph.currentEnv) else world.templates.get(sym)
         val g = if (inLocal) graph.let(query.name(sym), template.ret) else graph
         // TODO: distinct local val and member
         body.fold(g) { b =>
@@ -63,11 +63,12 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
         }.bind(template.bindings)
 
       case AST.FunDef(sym, tpe, body) =>
+        // TODO: Local def is forward-referenciable: Need two-phase traverse?
         if (query.isAccessor(sym)) {
           graph
         } else {
           // TODO: Use default binding if public
-          val template = world.templates.get(sym, graph.currentEnv)
+          val template = if (inLocal) world.templates.registerLocal(sym, graph.currentEnv) else world.templates.get(sym)
           // TODO: Handle local def
           body.fold(graph) { b =>
             buildGraph(graph, b, true)
@@ -87,7 +88,7 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
       case AST.Apply(self, sym, tpe, value, argss) =>
         val g = graph.pushEnv().visible(argss.flatten.map(_.value): _*)
         // TODO: register template.binding (or make global binding repo) for foreign members
-        val template = world.templates.get(sym, g.currentEnv)
+        val template = world.templates.get(sym)
         val g1 = buildGraph(g, self, inLocal)
         val g2 = argss.flatten.foldLeft(g1) { (g, a) => buildGraph(g, a, inLocal) }
         template.apply(g2, self.value, value, argss.map(_.map(_.value)))

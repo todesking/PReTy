@@ -19,7 +19,7 @@ class LogicCompiler(solverContext: SolverContext) {
   def booleanVar(v: Logic.Var): BooleanFormula = {
     require(v.tpe == Logic.TBool)
     (vars.get(v.varName) getOrElse {
-      ctx.intVar(v.varName)
+      ctx.booleanVar(v.varName)
     }).asInstanceOf[BooleanFormula]
   }
   def anyVar(v: Logic.Var): Formula = v.tpe match {

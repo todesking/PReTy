@@ -2,12 +2,13 @@ package com.todesking.prety.universe
 
 import com.todesking.prety.Lang
 
-trait Templates { self: ForeignTypes with Preds with Graphs with Values with Worlds with Envs =>
+trait Templates { self: ForeignTypes with Preds with Graphs with Values with Worlds with Envs with Macros =>
   case class Template(
     self: Value,
     ret: Value,
     argss: Seq[Seq[(String, Value)]],
-    bindings: Map[Value, Pred]) {
+    bindings: Map[Value, Pred],
+    makro: Option[Macro]) {
     override def toString =
       s"$self.(${argss.map(_.map { case (_, x) => s"${x}: ${bindings.get(x) getOrElse Pred.True}" }.mkString("(", ", ", ")")).mkString("")}) = $ret: ${bindings.get(ret) getOrElse Pred.True}; $bindings"
     // TODO: check acyclic
@@ -37,17 +38,17 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
   }
 
   class TemplateRepo(world: World) {
-    def register(f: DefSym, binding: Map[Value, Pred]): Unit = {
+    def register(f: DefSym, binding: Map[Value, Pred], makro: Option[Macro]): Unit = {
       if (templates.contains(f))
         throw new RuntimeException(s"register: Conflict: $f")
       // TODO: check preds type
       val fv = world.values.functionValue(f)
-      templates = templates + (f -> Template(fv.self, fv.ret, fv.paramss, binding))
+      templates = templates + (f -> Template(fv.self, fv.ret, fv.paramss, binding, makro))
     }
 
-    def get(f: DefSym, env: Env): Template = {
+    def get(f: DefSym): Template = {
       templates.get(f).getOrElse {
-        val t = freshTemplate(f, env)
+        val t = freshTemplate(f, Env.empty)
         this.templates = templates + (f -> t)
         t
       }
@@ -63,15 +64,26 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
 
     private[this] def freshTemplate(f: DefSym, env: Env): Template = {
       if (query.isAccessor(f)) {
-        get(query.unwrapAccessor(f), env)
+        get(query.unwrapAccessor(f))
       } else {
-        val srcs = query.refinementSrc(f)
-        val defs = Lang.parse(srcs)
-        buildTemplate(f, defs, env)
+        val srcs = query.refineAnnotations(f)
+        val simples = query.refineSimpleAnnotations(f)
+        if (simples.nonEmpty && srcs.nonEmpty) throw new RuntimeException("@refine and @refine.simple is exclusive")
+        if (simples.size > 1) throw new RuntimeException("Multiple @refine.simple")
+        val defs =
+          if (simples.nonEmpty) Lang.parseSingle(s"_: _ == ${simples.head}")
+          else Lang.parse(srcs)
+        val makro = simples
+          .headOption
+          .map { src =>
+            val paramss = query.paramss(f).map(_.map { p => query.name(p) -> query.returnType(p) })
+            Macro.method(world, query.name(f), src, query.returnType(f), paramss)
+          }
+        buildTemplate(f, defs, env, makro)
       }
     }
 
-    private[this] def buildTemplate(f: DefSym, preds: Map[String, Lang.Def], baseEnv: Env): Template = {
+    private[this] def buildTemplate(f: DefSym, preds: Map[String, Lang.Def], baseEnv: Env, makro: Option[Macro]): Template = {
       // TODO: Check unknown pred target
       val fv = world.values.functionValue(f)
 
@@ -90,7 +102,7 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
                 target -> pred
             }
         }
-      Template(fv.self, fv.ret, fv.paramss, bindings)
+      Template(fv.self, fv.ret, fv.paramss, bindings, makro)
     }
   }
 }

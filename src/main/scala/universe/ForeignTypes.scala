@@ -19,7 +19,8 @@ trait ForeignTypes {
     def paramss(f: DefSym): Seq[Seq[DefSym]]
     def returnType(f: DefSym): TypeSym
     def thisType(f: DefSym): TypeSym
-    def refinementSrc(f: DefSym): Seq[String]
+    def refineAnnotations(f: DefSym): Seq[String]
+    def refineSimpleAnnotations(f: DefSym): Seq[String]
     def pos(f: DefSym): Pos
 
     def isAccessor(f: DefSym): Boolean
@@ -40,8 +41,9 @@ trait ForeignTypes {
     def lookupMember(self: TypeSym, name: String, ret: TypeSym, paramss: Seq[Seq[TypeSym]]): DefSym = {
       val ms = lookupMembers(self, name, ret, paramss)
       val pat = s"$self.$name ${paramss.map(_.mkString("(", ", ", ")")).mkString("")}: $ret, ${ms.mkString(", ")}"
-      if(ms.size > 1)
-        throw new RuntimeException(s"Multiple member candidate for $pat")
+      // TODO: I need proper method overloading resolution :(
+      // if (ms.size > 1)
+      //   throw new RuntimeException(s"Multiple member candidate for $pat")
       ms.headOption getOrElse { throw new RuntimeException(s"Member not found for $pat") }
     }
 

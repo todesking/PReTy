@@ -12,34 +12,37 @@ trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros w
     import Lang.{ Expr => E }
     val CE = CoreExpr
     def compile(w: World, ast: Lang.Expr, env: Env, theType: TypeSym): Expr =
-      compile0(w, ast, env, theType) match {
+      compile(w, ast, env, theType, Map.empty)
+    def compile(w: World, ast: Lang.Expr, env: Env, theType: TypeSym, sub: Map[String, Expr]): Expr =
+      compile0(w, ast, env, theType, sub) match {
         case Right(e) => e
         case Left(m) => m.expr
       }
-    private[this] def compile0(w: World, ast: Lang.Expr, env: Env, theType: TypeSym): Either[Macro, Expr] = ast match {
+    private[this] def compile0(w: World, ast: Lang.Expr, env: Env, theType: TypeSym, sub: Map[String, Expr]): Either[Macro, Expr] = ast match {
       case E.TheValue =>
         Right(CE.TheValue(theType))
       case E.Ident(name) =>
-        Right(CE.ValueRef(env.findValue(name)))
+        if (sub.contains(name)) Right(sub(name))
+        else Right(CE.ValueRef(env.findValue(name)))
       case E.LitInt(value) =>
         Right(CE.INT_Lit(value))
       case E.Op(lhs, op, rhs) =>
-        val l = compile(w, lhs, env, theType)
-        val r = compile(w, rhs, env, theType)
+        val l = compile(w, lhs, env, theType, sub)
+        val r = compile(w, rhs, env, theType, sub)
         val m = w.findMethodMacro(l.tpe, op, Seq(Seq(r.tpe)))
-        Right(m.apply(l, r))
+        m.apply(Some(l), Seq(r), env)
       case E.MacroRef(name) =>
         Left(w.findMacro(name))
       case E.Select(expr, name) =>
-        compile0(w, expr, env, theType) match {
+        compile0(w, expr, env, theType, sub) match {
           case Left(m) => m.select(name)
           case Right(e) =>
             throw new RuntimeException(s"Invalid select: $ast")
         }
       case E.App(expr, args) =>
-        compile0(w, expr, env, theType) match {
+        compile0(w, expr, env, theType, sub) match {
           case Left(m) =>
-            m.apply(args.map(compile(w, _, env, theType)))
+            m.apply(None, args.map(compile(w, _, env, theType, sub)), env)
           case Right(e) =>
             throw new RuntimeException(s"Invalid app: $ast")
         }
@@ -118,6 +121,12 @@ trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros w
       override def tpe = T.boolean
       override def substitute(mapping: Map[Value, Value]) = this
       override def toString = value.toString
+    }
+    case class BOOL_EQ(lhs: CoreExpr, rhs: CoreExpr) extends BinaryOp {
+      override def tpe = T.boolean
+      override def substitute(mapping: Map[Value, Value]) =
+        BOOL_EQ(lhs.substitute(mapping), rhs.substitute(mapping))
+      override def toString = s"$lhs == $rhs"
     }
   }
 }

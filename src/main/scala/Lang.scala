@@ -12,6 +12,13 @@ object Lang {
       case Parser.Success(defs, _) =>
         defs
     }
+  def parseExpr(s: String): Expr =
+    Parser.parseAll(Parser.expr, s) match {
+      case Parser.NoSuccess(msg, _) =>
+        throw new RuntimeException(s"Parse error($msg): $s")
+      case Parser.Success(e, _) =>
+        e
+    }
 
   object Parser extends scala.util.parsing.combinator.RegexParsers {
     def all: Parser[Map[String, Def]] = repsep(pred, ",").map(uniqueMap)
