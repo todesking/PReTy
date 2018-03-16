@@ -1,8 +1,9 @@
 package com.todesking.prety.universe
 
 import com.todesking.prety.Lang
+import scala.reflect.runtime.{universe => ru}
 
-trait Worlds { self: ForeignTypes with Values with Templates with Props with Exprs with Envs with Preds with Macros =>
+trait Worlds { self: ForeignTypes with Values with Templates with Props with Exprs with Envs with Preds with Macros with Debugging=>
   class World() {
     private[this] def nf(kind: String, key: String) =
       throw new RuntimeException(s"$kind $key not found")
@@ -70,14 +71,19 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
     def registerMember(selfName: String, methodName: String, retName: String, paramNames: Seq[Seq[(String, String)]], src: String): Unit = {
       val selfT = query.types.fromName(selfName)
       val retT = query.types.fromName(retName)
-      val paramssT = paramNames.map(_.map(_._2).map(query.types.fromName))
-      val f = query.lookupMember(selfT, methodName, retT, paramssT)
+      val paramss = paramNames.map(_.map { case (n, t) => (n, query.types.fromName(t))})
+      registerMember(selfT, methodName, retT, paramss, Seq(src))
+    }
+
+    def registerMember(selfT: TypeSym, methodName: String, retT: TypeSym, paramss: Seq[Seq[(String, TypeSym)]], src: Seq[String]): Unit = {
+      dprint(s"registering ${selfT}.$methodName ${paramss.map(_.map {case (k,v) => s"$k: $v" }).mkString("(", ", ", ")")} ${src.mkString(", ")}")
+      val f = query.lookupMember(selfT, methodName, retT, paramss.map(_.map(_._2)))
       val fv = values.functionValue(f)
-      val name2value = paramNames.flatten.map(_._1).zip(fv.paramss.flatten.map(_._2)).toMap + ("this" -> fv.self) + ("_" -> fv.ret)
-      val name2type = paramNames.flatten.map { case (name, t) => name -> query.types.fromName(t) }.toMap + ("this" -> selfT) + ("_" -> fv.ret.tpe)
+      val name2value = paramss.flatten.map(_._1).zip(fv.paramss.flatten.map(_._2)).toMap + ("this" -> fv.self) + ("_" -> fv.ret)
+      val name2type = paramss.flatten.toMap + ("this" -> selfT) + ("_" -> fv.ret.tpe)
       val env = Env(name2value)
       val value2pred =
-        (Map(fv.self -> Pred.True, fv.ret -> Pred.True) ++ fv.paramss.flatten.map(_._2 -> Pred.True)) ++ Lang.parseSingle(src).map {
+        (Map(fv.self -> Pred.True, fv.ret -> Pred.True) ++ fv.paramss.flatten.map(_._2 -> Pred.True)) ++ Lang.parse(src).map {
           case (name, d) =>
             val v = name2value(name)
             v -> Pred.compile(this, d.props, name2type(name), env)
@@ -85,7 +91,48 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
       templates.register(f, value2pred)
     }
 
-    def registerMembers(proxy: scala.reflect.runtime.universe.TypeTag[_]): Unit = {
+    def registerMembers(proxy: ru.TypeTag[_]): Unit = {
+      val proxyAnnotationType = ru.typeOf[com.todesking.prety.refine.proxy]
+      val refineAnnotationType = ru.typeOf[com.todesking.prety.refine]
+      def proxyName(t: ru.Type): Option[String] = {
+        val names =
+          t.typeSymbol.annotations.collect {
+            case an if an.tree.tpe <:< proxyAnnotationType =>
+              an.tree.children.tail(0) match {
+                case ru.Literal(ru.Constant(src: String)) => src
+              }
+          }
+        if(names.size > 1) throw new RuntimeException(s"too many proxy names: $names")
+        names.headOption
+      }
+      val targetName =proxyName(proxy.tpe) getOrElse { throw new RuntimeException(s"proxy annotation not found: $proxy") }
+      val selfType = query.types.fromName(targetName)
+      def unproxy(t: ru.Type): TypeSym =
+        proxyName(t).fold{ query.types.fromName(t.typeSymbol.fullName) } { n => query.types.fromName(n) }
+      def refinementSrc(m: ru.MethodSymbol): Seq[String] = {
+        val names =
+          m.annotations.collect {
+            case an if an.tree.tpe <:< refineAnnotationType =>
+              an.tree.children.tail(0) match {
+                case ru.Literal(ru.Constant(src: String)) => src
+              }
+          }
+        names
+      }
+      proxy.tpe.decls.foreach { sym =>
+        if(sym.isMethod) {
+          val m = sym.asMethod
+          registerMember(
+            selfType,
+            m.name.decodedName.toString,
+            unproxy(m.returnType),
+            m.paramLists.map(_.map { p => p.name.decodedName.toString -> unproxy(p.asTerm.info)}),
+            refinementSrc(m)
+          )
+        } else {
+          throw new RuntimeException(s"Unsupported member in proxy: $sym")
+        }
+      }
     }
   }
 
@@ -97,8 +144,8 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
 
       w.registerMacro(CoreLib)
 
-      w.registerMember("scala.Int", "<", "scala.Boolean", Seq(Seq("rhs" -> "scala.Int")), "_: this < rhs")
-      w.registerMember("scala.Int", ">", "scala.Boolean", Seq(Seq("rhs" -> "scala.Int")), "_: this > rhs")
+      w.registerMembers(ru.typeTag[IntProxy])
+
       w
     }
 
@@ -124,33 +171,33 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
       def unary_+ : Int
       def unary_- : Int
 
-      // @refine("_: @core.int.eq(this, x)")
+      @refine("_: @core.int.eq(this, x)")
       def ==(x: Int): Boolean
       // @refine("_: !@core.int.eq(this, x)")
       def !=(x: Int): Boolean
 
-      @refine("_: !@core.int.lt(this, x)")
+      @refine("_: @core.int.lt(this, x)")
       def <(x: Int): Boolean
-      @refine("_: !@core.int.le(this, x)")
+      // @refine("_: @core.int.le(this, x)")
       def <=(x: Int): Boolean
-      @refine("_: !@core.int.gt(this, x)")
+      @refine("_: @core.int.gt(this, x)")
       def >(x: Int): Boolean
-      @refine("_: !@core.int.ge(this, x)")
+      // @refine("_: @core.int.ge(this, x)")
       def >=(x: Int): Boolean
 
       def |(x: Int): Int
       def &(x: Int): Int
       def ^(x: Int): Int
 
-      @refine("_: _ == @core.int.plus(this, x)")
+      // @refine("_: _ == @core.int.plus(this, x)")
       def +(x: Int): Int
-      @refine("_: _ == @core.int.minus(this, x)")
+      // @refine("_: _ == @core.int.minus(this, x)")
       def -(x: Int): Int
-      @refine("_: _ == @core.int.mult(this, x)")
+      // @refine("_: _ == @core.int.mult(this, x)")
       def *(x: Int): Int
-      @refine("_: _ == @core.int.div(this, x)")
+      // @refine("_: _ == @core.int.div(this, x)")
       def /(x: Int): Int
-      @refine("_: _ == @core.int.mod(this, x)")
+      // @refine("_: _ == @core.int.mod(this, x)")
       def %(x: Int): Int
     }
   }
