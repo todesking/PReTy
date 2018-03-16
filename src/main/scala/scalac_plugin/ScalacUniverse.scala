@@ -53,7 +53,7 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
 
     override def <:<(lhs: TypeSym, rhs: TypeSym) = lhs <:< rhs
 
-    override def lookupMember(self: TypeSym, name: String, ret: TypeSym, paramss: Seq[Seq[TypeSym]]): DefSym = {
+    override def lookupMembers(self: TypeSym, name: String, ret: TypeSym, paramss: Seq[Seq[TypeSym]]): Seq[DefSym] = {
       def matcher(x: global.Symbol): Boolean = {
         if (x.isMethod) {
           val m = x.asMethod
@@ -62,8 +62,7 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
           false
         }
       }
-      val found = self.members.sorted.find(matcher).get.asTerm
-      found
+      self.members.sorted.filter(matcher).map(_.asTerm)
     }
 
     override val types = new TypesAPI {

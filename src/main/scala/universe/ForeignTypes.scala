@@ -36,7 +36,14 @@ trait ForeignTypes {
 
     def <:<(lhs: TypeSym, rhs: TypeSym): Boolean
 
-    def lookupMember(self: TypeSym, name: String, ret: TypeSym, paramss: Seq[Seq[TypeSym]]): DefSym
+    def lookupMembers(self: TypeSym, name: String, ret: TypeSym, paramss: Seq[Seq[TypeSym]]): Seq[DefSym]
+    def lookupMember(self: TypeSym, name: String, ret: TypeSym, paramss: Seq[Seq[TypeSym]]): DefSym = {
+      val ms = lookupMembers(self, name, ret, paramss)
+      val pat = s"$self.$name ${paramss.map(_.mkString("(", ", ", ")")).mkString("")}: $ret, ${ms.mkString(", ")}"
+      if(ms.size > 1)
+        throw new RuntimeException(s"Multiple member candidate for $pat")
+      ms.headOption getOrElse { throw new RuntimeException(s"Member not found for $pat") }
+    }
 
     val types: TypesAPI
     trait TypesAPI {

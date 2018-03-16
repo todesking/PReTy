@@ -30,6 +30,12 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
       macros = macros + (m.name -> m)
     }
 
+    def findMethodMacro(selfT: TypeSym, name: String, argss: Seq[Seq[TypeSym]]): Macro = {
+      val f = query.lookupMember(selfT, name, query.types.any, argss)
+      val t = templates.get(f)
+      ???
+    }
+
     def findMacro(name: String): Macro = macros.get(name) getOrElse nf("Macro", name)
 
     def findPropKey(name: String, targetType: TypeSym): PropKey = name match {
@@ -41,29 +47,6 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
 
     def findProp(tpe: TypeSym): Prop =
       props.get(tpe) getOrElse nf("Prop", tpe.toString)
-
-    // TODO: Deprecate
-    def findOp(tpe: TypeSym, name: String): (Expr, Expr) => Expr = {
-      import query.{ types => T }
-      if (tpe <:< query.types.int)
-        name match {
-          case ">" => {
-            case (l: CoreExpr, r: CoreExpr) if l.tpe <:< T.int && r.tpe <:< T.int =>
-              CoreExpr.INT_GT(l, r)
-          }
-          case "<" => {
-            case (l: CoreExpr, r: CoreExpr) if l.tpe <:< T.int && r.tpe <:< T.int =>
-              CoreExpr.INT_LT(l, r)
-          }
-          case "==" => {
-            case (l: CoreExpr, r: CoreExpr) if l.tpe <:< T.int && r.tpe <:< T.int =>
-              CoreExpr.INT_EQ(l, r)
-          }
-          case unk =>
-            nf("Operator", s"$tpe.$name")
-        }
-      else nf("Operator", s"$tpe.$name")
-    }
 
     val templates = new TemplateRepo(this)
     val values = new ValueRepo
@@ -172,11 +155,11 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
       // @refine("_: !@core.int.eq(this, x)")
       def !=(x: Int): Boolean
 
-      @refine("_: @core.int.lt(this, x)")
+      @refine.simple("@core.int.lt(this, x)")
       def <(x: Int): Boolean
       // @refine("_: @core.int.le(this, x)")
       def <=(x: Int): Boolean
-      @refine("_: @core.int.gt(this, x)")
+      @refine.simple("@core.int.gt(this, x)")
       def >(x: Int): Boolean
       // @refine("_: @core.int.ge(this, x)")
       def >=(x: Int): Boolean
@@ -186,6 +169,7 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
       def ^(x: Int): Int
 
       // @refine("_: _ == @core.int.plus(this, x)")
+      // @refine.expr("@core.int.plus(this, x)")
       def +(x: Int): Int
       // @refine("_: _ == @core.int.minus(this, x)")
       def -(x: Int): Int

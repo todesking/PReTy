@@ -2,7 +2,7 @@ package com.todesking.prety.universe
 
 import com.todesking.prety.Lang
 
-trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros =>
+trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros with Templates =>
   abstract class Expr {
     def tpe: TypeSym
     def substitute(mapping: Map[Value, Value]): Expr
@@ -26,7 +26,8 @@ trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros =
       case E.Op(lhs, op, rhs) =>
         val l = compile(w, lhs, env, theType)
         val r = compile(w, rhs, env, theType)
-        Right(w.findOp(l.tpe, op).apply(l, r))
+        val m = w.findMethodMacro(l.tpe, op, Seq(Seq(r.tpe)))
+        Right(m.apply(l, r))
       case E.MacroRef(name) =>
         Left(w.findMacro(name))
       case E.Select(expr, name) =>
