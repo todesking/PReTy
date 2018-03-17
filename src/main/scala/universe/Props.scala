@@ -57,6 +57,10 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
     propInLogic(value, prop) match {
       case v: Logic.LInt => v
     }
+  def propInLogicB(value: Value, prop: PropKey): Logic.LBool =
+    propInLogic(value, prop) match {
+      case v: Logic.LBool => v
+    }
 
   trait Prop {
     val tpe: TypeSym
@@ -88,16 +92,20 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
                 this.toLogic(ppred, value)
             }
         }.reduceOption(_ & _) getOrElse Logic.True
-        def condsToLogic(l: Map[Value, Pred]) =
+        def condsToLogic(l: Map[Value, Pred], not: Boolean) =
           l.flatMap {
             case (value, pred) =>
               pred.definedProps.map {
                 case (prop, ppred) =>
-                  this.toLogic(ppred, value)
+                  if (not) {
+                    this.toLogic(ppred, value) & !propInLogicB(value, prop)
+                  } else {
+                    this.toLogic(ppred, value) & propInLogicB(value, prop)
+                  }
               }
           }.reduceOption(_ & _) getOrElse Logic.True
-        val condLogic = condsToLogic(binding.filterKeys(env.conds))
-        val uncondLogic = condsToLogic(binding.filterKeys(env.unconds))
+        val condLogic = condsToLogic(binding.filterKeys(env.conds), not = false)
+        val uncondLogic = condsToLogic(binding.filterKeys(env.unconds), not = true)
         (Seq((envLogic & condLogic & uncondLogic & compileB(l, v)) --> compileB(r, v)), Seq())
       case _ =>
         throw new RuntimeException(s"Unsupported pred pair: $lhs, $rhs")

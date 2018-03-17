@@ -62,7 +62,7 @@ class LogicCompiler(solverContext: SolverContext) {
       val bvars = vars.collect { case b @ Logic.BVar(_, _) => b }
 
       // java-smt's forall accepts only int vars??
-      // So convert boolean var reference `b` to `bi = fresh(); bi == 1`
+      // So convert boolean var reference `b` to `bi == 1` where `bi = fresh_int_var()`
       val bis: Map[Logic.BVar, (Logic.IVar, Logic.LBool)] = bvars.map { bv =>
         val bivar = Logic.IVar(bv.id, bv.name)
         bv -> (bivar -> Logic.IEq(bivar, Logic.IValue(1)))
@@ -72,8 +72,6 @@ class LogicCompiler(solverContext: SolverContext) {
       val bodyLogic = compileBoolean(body)
       val newVars = ivars ++ bis.values.map(_._1)
       val smtVars = newVars.toSeq.map(intVar)
-      println(s"Rewrite:    ${Logic.Forall(vars, expr)}")
-      println(s"Rewrite: => ${Logic.Forall(newVars.toSet, body)}")
       ctx.forall(smtVars, bodyLogic)
     case unk =>
       throw new RuntimeException(s"SMT-B: $unk")
