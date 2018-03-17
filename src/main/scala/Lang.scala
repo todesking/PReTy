@@ -28,11 +28,13 @@ object Lang {
     def props_full = ('{' ~> repsep(prop, ",")) <~ '}'
     def props_one = expr ^^ { e => Seq("_" -> e) }
     def prop = name ~ (':' ~> expr) ^^ { case n ~ p => (n, p) }
-    def expr: Parser[Expr] = expr1 ~ (op ~ expr1).? ^^ {
-      case lhs ~ Some(op ~ rhs) => Expr.Op(lhs, op, rhs)
-      case lhs ~ None => lhs
+    def expr: Parser[Expr] = opapp | expr1
+    def expr1 = group | atom
+    def opapp: Parser[Expr] = expr1 ~ op ~ expr1 ^^ {
+      case lhs ~ op ~ rhs => Expr.Op(lhs, op, rhs)
     }
-    def expr1 = lit | ((ref ~ app.?) ^^ {
+    def group: Parser[Expr] = ("(" ~> expr) <~ ")"
+    def atom = lit | ((ref ~ app.?) ^^ {
       case e ~ Some(args) => Expr.App(e, args)
       case e ~ None => e
     })
@@ -41,7 +43,7 @@ object Lang {
         names.foldLeft[Expr](id) { (m, id) => Expr.Select(m, id) }
     }
     def makro = "@" ~> name ^^ { id => Expr.MacroRef(id) }
-    def app = ('(' ~> repsep(expr, ",")) <~ ')'
+    def app: Parser[Seq[Expr]] = ('(' ~> repsep(expr, ",")) <~ ')'
     def ident = name ^^ { id => Expr.Ident(id) }
     def the_value = "_" ^^ { _ => Expr.TheValue }
     def name = "[a-zA-Z_][a-zA-Z_0-9]*".r

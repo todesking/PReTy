@@ -49,4 +49,23 @@ object Env {
       }
     }
   }
+
+  def baz(x: Int): Unit = {
+    val y = 10
+    if(x < y) {
+      lt(x, y)
+    }
+    lt(x, y)
+    // ^ {} *<= {_: _ < y}
+    if(lessThan(x, y)) {
+      lt(x, y)
+    }
+    lt(x, y)
+    // ^ {} *<= {_: _ < y}
+  }
+
+  // TODO: fix private member refinement inference
+  @refine("_: _ == (x < y)")
+  private[this] def lessThan(x: Int, y: Int): Boolean =
+    x < y
 }
