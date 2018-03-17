@@ -61,7 +61,7 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
   trait Prop {
     val tpe: TypeSym
     def buildPred(src: String, expr: Expr): PropPred
-    def solveConstraint(theValue: Value, key: PropKey, env: Env, binding: Map[Value, Pred], lhs: PropPred, rhs: PropPred): (Seq[Logic], Seq[Conflict])
+    def solveConstraint(theValue: Value, key: PropKey, env: Env, binding: Map[Value, Pred], lhs: PropPred, rhs: PropPred): (Seq[Logic.LBool], Seq[Conflict])
     // pred.tpe == this.tpe
     def toLogic(pred: PropPred, theValue: Value): Logic.LBool
   }
@@ -79,31 +79,26 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
       case (CorePred(_, l), CorePred(_, r)) =>
         // TODO: check base type constraint
         val v = propInLogic(theValue, key)
+
         val envLogic = binding.filterKeys(env.values).flatMap {
           case (value, pred) =>
             // TODO: use corresponding world
             pred.definedProps.map {
               case (prop, ppred) =>
                 this.toLogic(ppred, value)
-            }: Seq[Logic.LBool]
-        }.asInstanceOf[Seq[Logic.LBool]].reduceOption(_ & _) getOrElse Logic.True
-        val condLogic =
-          binding.filterKeys(env.conds).flatMap {
+            }
+        }.reduceOption(_ & _) getOrElse Logic.True
+        def condsToLogic(l: Map[Value, Pred]) =
+          l.flatMap {
             case (value, pred) =>
               pred.definedProps.map {
                 case (prop, ppred) =>
                   this.toLogic(ppred, value)
               }
           }.reduceOption(_ & _) getOrElse Logic.True
-        val uncondLogic =
-          binding.filterKeys(env.unconds).flatMap {
-            case (value, pred) =>
-              pred.definedProps.map {
-                case (prop, ppred) =>
-                  !this.toLogic(ppred, value): Logic
-              }
-          }.reduceOption(_ & _) getOrElse Logic.True
-        (Seq((envLogic & condLogic & uncondLogic & compile(l, v)) --> compile(r, v)), Seq())
+        val condLogic = condsToLogic(binding.filterKeys(env.conds))
+        val uncondLogic = condsToLogic(binding.filterKeys(env.unconds))
+        (Seq((envLogic & condLogic & uncondLogic & compileB(l, v)) --> compileB(r, v)), Seq())
       case _ =>
         throw new RuntimeException(s"Unsupported pred pair: $lhs, $rhs")
     }

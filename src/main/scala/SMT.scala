@@ -59,6 +59,8 @@ object SMT {
         fm.getBooleanFormulaManager().makeVariable(name)
       def lit(v: Int) =
         fm.getIntegerFormulaManager().makeNumber(v.toLong)
+      def lit(v: Boolean) =
+        fm.getBooleanFormulaManager().makeBoolean(v)
       def forall(vars: Seq[Formula], expr: BooleanFormula): BooleanFormula =
         self.getFormulaManager.getQuantifiedFormulaManager.forall(vars.asJava, expr)
     }
@@ -74,6 +76,7 @@ object SMT {
     implicit class BooleanFormulaOps(self: BooleanFormula)(implicit ctx: SolverContext) {
       private[this] def fm = ctx.getFormulaManager.getBooleanFormulaManager
       def unary_!(): BooleanFormula = fm.not(self)
+      def ===(rhs: BooleanFormula) = fm.equivalence(self, rhs)
       def &&(rhs: BooleanFormula) = fm.and(self, rhs)
       def -->(rhs: BooleanFormula) =
         fm.implication(self, rhs)

@@ -12,12 +12,16 @@ class LogicCompiler(solverContext: SolverContext) {
 
   def intVar(v: Logic.IVar): IntegerFormula = {
     (vars.get(v.varName) getOrElse {
-      ctx.intVar(v.varName)
+      val x = ctx.intVar(v.varName)
+      this.vars = vars + (v.varName -> x)
+      x
     }).asInstanceOf[IntegerFormula]
   }
   def booleanVar(v: Logic.BVar): BooleanFormula = {
     (vars.get(v.varName) getOrElse {
-      ctx.booleanVar(v.varName)
+      val x = ctx.booleanVar(v.varName)
+      this.vars = vars + (v.varName -> x)
+      x
     }).asInstanceOf[BooleanFormula]
   }
   def anyVar(v: Logic.Var): Formula = v match {
@@ -38,6 +42,8 @@ class LogicCompiler(solverContext: SolverContext) {
       v
     case Logic.IEq(l, r) =>
       compileInteger(l) === compileInteger(r)
+    case Logic.BEq(l, r) =>
+      compileBoolean(l) === compileBoolean(r)
     case Logic.Gt(l, r) =>
       compileInteger(l) > compileInteger(r)
     case Logic.Lt(l, r) =>
@@ -51,7 +57,24 @@ class LogicCompiler(solverContext: SolverContext) {
     case Logic.Not(l) =>
       !compileBoolean(l)
     case Logic.Forall(vars, expr) =>
-      ctx.forall(vars.toSeq.map(anyVar), compileBoolean(expr))
+      // TODO: ensure other variables not exists
+      val ivars = vars.collect { case i @ Logic.IVar(_, _) => i }
+      val bvars = vars.collect { case b @ Logic.BVar(_, _) => b }
+
+      // java-smt's forall accepts only int vars??
+      // So convert boolean var reference `b` to `bi = fresh(); bi == 1`
+      val bis: Map[Logic.BVar, (Logic.IVar, Logic.LBool)] = bvars.map { bv =>
+        val bivar = Logic.IVar(bv.id, bv.name)
+        bv -> (bivar -> Logic.IEq(bivar, Logic.IValue(1)))
+      }.toMap
+      val sub = bis.map { case (k, v) => (k: Logic) -> v._2 }
+      val body = expr.substitute(sub)
+      val bodyLogic = compileBoolean(body)
+      val newVars = ivars ++ bis.values.map(_._1)
+      val smtVars = newVars.toSeq.map(intVar)
+      println(s"Rewrite:    ${Logic.Forall(vars, expr)}")
+      println(s"Rewrite: => ${Logic.Forall(newVars.toSet, body)}")
+      ctx.forall(smtVars, bodyLogic)
     case unk =>
       throw new RuntimeException(s"SMT-B: $unk")
   }

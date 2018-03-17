@@ -67,6 +67,9 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
         case None =>
           s"???"
       }
+      val smt = SMT.newContext()
+      val compiler = new LogicCompiler(smt.ctx)
+
       dprint("SMT Logic:")
       constraints.foreach { c =>
         def valueString(v: Value) = s"$v: ${c.constraint.binding(v)}"
@@ -85,10 +88,8 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
         }
         dprint("  =>", c.constraint)
         dprint("  =>", c.logic)
+        dprint("  =>", compiler.compileBoolean(c.logic))
       }
-
-      val smt = SMT.newContext()
-      val compiler = new LogicCompiler(smt.ctx)
 
       val conflicts =
         smt.withProver() { prover =>
