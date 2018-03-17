@@ -26,8 +26,13 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
   }
 
   private[this] var nextVarId = 0
-  def freshVar(tpe: Logic.Type, name: String): Logic.Var = {
-    val v = Logic.Var(nextVarId, tpe, name)
+  def freshIVar(name: String): Logic.IVar = {
+    val v = Logic.IVar(nextVarId, name)
+    nextVarId += 1
+    v
+  }
+  def freshBVar(name: String): Logic.BVar = {
+    val v = Logic.BVar(nextVarId, name)
     nextVarId += 1
     v
   }
@@ -38,26 +43,27 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
       val naked = value.naked
       val v = naked match {
         case Value.IntLiteral(i) if prop == PropKey.Self => // TODO
-          Logic.IntValue(i)
+          Logic.IValue(i)
         case _ =>
-          freshVar(logicType(prop.typeFor(naked.tpe)), naked.toString)
+          val t = prop.typeFor(naked.tpe)
+          if (t <:< query.types.int) freshIVar(naked.toString)
+          else if (t <:< query.types.boolean) freshBVar(naked.toString)
+          else throw new RuntimeException(s"Theres no type $t in Logic")
       }
       prop2l = prop2l + ((naked, prop) -> v)
       v
     }
-
-  private[this] lazy val T = query.types
-  def logicType(tpe: TypeSym): Logic.Type =
-    if (tpe <:< T.int) Logic.TInt
-    else if (tpe <:< T.boolean) Logic.TBool
-    else throw new RuntimeException(s"Theres no type $tpe in Logic")
+  def propInLogicI(value: Value, prop: PropKey): Logic.LInt =
+    propInLogic(value, prop) match {
+      case v: Logic.LInt => v
+    }
 
   trait Prop {
     val tpe: TypeSym
     def buildPred(src: String, expr: Expr): PropPred
     def solveConstraint(theValue: Value, key: PropKey, env: Env, binding: Map[Value, Pred], lhs: PropPred, rhs: PropPred): (Seq[Logic], Seq[Conflict])
     // pred.tpe == this.tpe
-    def toLogic(pred: PropPred, theValue: Value): Logic
+    def toLogic(pred: PropPred, theValue: Value): Logic.LBool
   }
 
   abstract class CoreProp extends Prop {
@@ -65,8 +71,8 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
       case e: CoreExpr => CorePred(src, e)
     }
 
-    override def toLogic(pred: PropPred, theValue: Value): Logic = pred match {
-      case CorePred(_, p) => compile(p, propInLogic(theValue, PropKey.Self))
+    override def toLogic(pred: PropPred, theValue: Value): Logic.LBool = pred match {
+      case CorePred(_, p) => compileB(p, propInLogic(theValue, PropKey.Self))
     }
 
     override def solveConstraint(theValue: Value, key: PropKey, env: Env, binding: Map[Value, Pred], lhs: PropPred, rhs: PropPred) = (lhs, rhs) match {
@@ -79,8 +85,8 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
             pred.definedProps.map {
               case (prop, ppred) =>
                 this.toLogic(ppred, value)
-            }
-        }.reduceOption(_ & _) getOrElse Logic.True
+            }: Seq[Logic.LBool]
+        }.asInstanceOf[Seq[Logic.LBool]].reduceOption(_ & _) getOrElse Logic.True
         val condLogic =
           binding.filterKeys(env.conds).flatMap {
             case (value, pred) =>
@@ -104,25 +110,33 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
 
     private[this] val E = CoreExpr
     private[this] val L = Logic
-    private[this] def compile(e: CoreExpr, theValue: Logic): Logic = e match {
+    private[this] def compileB(e: CoreExpr, theValue: Logic): Logic.LBool = e match {
       case E.TheValue(_) =>
-        theValue
-      case E.ValueRef(v) =>
-        propInLogic(v, PropKey.Self)
-      case E.INT_Lit(x) =>
-        Logic.IntValue(x)
+        theValue match {
+          case v: Logic.LBool => v
+        }
       case E.INT_GT(l, r) =>
-        compile(l, theValue) > compile(r, theValue)
+        compileI(l, theValue) > compileI(r, theValue)
       case E.INT_LT(l, r) =>
-        compile(l, theValue) < compile(r, theValue)
+        compileI(l, theValue) < compileI(r, theValue)
       case E.INT_EQ(l, r) =>
-        compile(l, theValue) === compile(r, theValue)
+        compileI(l, theValue) === compileI(r, theValue)
       case E.BOOL_Lit(v) =>
-        L.BoolValue(v)
+        L.BValue(v)
       case E.BOOL_EQ(l, r) =>
-        compile(l, theValue) === compile(r, theValue)
+        compileB(l, theValue) === compileB(r, theValue)
       case E.And(es) =>
-        es.map(compile(_, theValue)).reduce(_ & _)
+        es.map(compileB(_, theValue)).reduce(_ & _)
+    }
+    private[this] def compileI(e: CoreExpr, theValue: Logic): Logic.LInt = e match {
+      case E.TheValue(_) =>
+        theValue match {
+          case v: Logic.LInt => v
+        }
+      case E.ValueRef(v) =>
+        propInLogicI(v, PropKey.Self)
+      case E.INT_Lit(x) =>
+        Logic.IValue(x)
     }
   }
 

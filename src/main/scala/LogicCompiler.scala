@@ -10,35 +10,33 @@ class LogicCompiler(solverContext: SolverContext) {
   private[this] implicit val ctx = solverContext
   import SMT.Syntax._
 
-  def intVar(v: Logic.Var): IntegerFormula = {
-    require(v.tpe == Logic.TInt)
+  def intVar(v: Logic.IVar): IntegerFormula = {
     (vars.get(v.varName) getOrElse {
       ctx.intVar(v.varName)
     }).asInstanceOf[IntegerFormula]
   }
-  def booleanVar(v: Logic.Var): BooleanFormula = {
-    require(v.tpe == Logic.TBool)
+  def booleanVar(v: Logic.BVar): BooleanFormula = {
     (vars.get(v.varName) getOrElse {
       ctx.booleanVar(v.varName)
     }).asInstanceOf[BooleanFormula]
   }
-  def anyVar(v: Logic.Var): Formula = v.tpe match {
-    case Logic.TInt => intVar(v)
-    case Logic.TBool => booleanVar(v)
+  def anyVar(v: Logic.Var): Formula = v match {
+    case b @ Logic.BVar(_, _) => booleanVar(b)
+    case i @ Logic.IVar(_, _) => intVar(i)
   }
 
   def compileInteger(l: Logic): IntegerFormula = l match {
-    case Logic.IntValue(v) =>
+    case Logic.IValue(v) =>
       ctx.lit(v)
-    case v @ Logic.Var(_, Logic.TInt, name) =>
+    case v @ Logic.IVar(_, _) =>
       intVar(v)
     case unk =>
       throw new RuntimeException(s"SMT-I: $unk")
   }
   def compileBoolean(l: Logic): BooleanFormula = l match {
-    case Logic.BoolValue(v) =>
+    case Logic.BValue(v) =>
       v
-    case Logic.Eq(l, r) =>
+    case Logic.IEq(l, r) =>
       compileInteger(l) === compileInteger(r)
     case Logic.Gt(l, r) =>
       compileInteger(l) > compileInteger(r)
@@ -48,7 +46,7 @@ class LogicCompiler(solverContext: SolverContext) {
       compileBoolean(l) --> compileBoolean(r)
     case Logic.And(conds) =>
       ctx.getFormulaManager.getBooleanFormulaManager.and(conds.map { c => compileBoolean(c) }: _*)
-    case v @ Logic.Var(_, Logic.TBool, name) =>
+    case v @ Logic.BVar(_, _) =>
       booleanVar(v)
     case Logic.Not(l) =>
       !compileBoolean(l)
