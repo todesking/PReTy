@@ -120,6 +120,8 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
         }
       case E.INT_GT(l, r) =>
         compileI(l, theValue) > compileI(r, theValue)
+      case E.INT_GE(l, r) =>
+        compileI(l, theValue) >= compileI(r, theValue)
       case E.INT_LT(l, r) =>
         compileI(l, theValue) < compileI(r, theValue)
       case E.INT_EQ(l, r) =>

@@ -69,6 +69,7 @@ object SMT {
       private[this] def ifm = ctx.getFormulaManager.getIntegerFormulaManager
       def +(rhs: IntegerFormula) = ifm.add(self, rhs)
       def >(rhs: IntegerFormula) = ifm.greaterThan(self, rhs)
+      def >=(rhs: IntegerFormula) = ifm.greaterOrEquals(self, rhs)
       def <(rhs: IntegerFormula) = ifm.lessThan(self, rhs)
       def ===(rhs: IntegerFormula) = ifm.equal(self, rhs)
     }

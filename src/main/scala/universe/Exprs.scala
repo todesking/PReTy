@@ -105,6 +105,12 @@ trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros w
         INT_GT(lhs.substitute(mapping), rhs.substitute(mapping))
       override def toString = s"$lhs > $rhs"
     }
+    case class INT_GE(lhs: CoreExpr, rhs: CoreExpr) extends BinaryOp {
+      override def tpe = T.boolean
+      override def substitute(mapping: Map[Value, Value]) =
+        INT_GE(lhs.substitute(mapping), rhs.substitute(mapping))
+      override def toString = s"$lhs >= $rhs"
+    }
     case class INT_LT(lhs: CoreExpr, rhs: CoreExpr) extends BinaryOp {
       override def tpe = T.boolean
       override def substitute(mapping: Map[Value, Value]) =

@@ -175,6 +175,7 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
           "eq" -> intEq,
           opI("lt", CoreExpr.INT_LT),
           opI("gt", CoreExpr.INT_GT),
+          opI("ge", CoreExpr.INT_GE),
       ),
       "bool" -> Macro.dict("core.bool")(
         opB("eq", CoreExpr.BOOL_EQ),
@@ -206,7 +207,7 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
       def <=(x: Int): Boolean
       @refine.simple("@core.int.gt(this, x)")
       def >(x: Int): Boolean
-      // @refine("_: @core.int.ge(this, x)")
+      @refine.simple("@core.int.ge(this, x)")
       def >=(x: Int): Boolean
 
       def |(x: Int): Int

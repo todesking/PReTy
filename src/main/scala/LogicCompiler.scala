@@ -46,6 +46,8 @@ class LogicCompiler(solverContext: SolverContext) {
       compileBoolean(l) === compileBoolean(r)
     case Logic.Gt(l, r) =>
       compileInteger(l) > compileInteger(r)
+    case Logic.Ge(l, r) =>
+      compileInteger(l) >= compileInteger(r)
     case Logic.Lt(l, r) =>
       compileInteger(l) < compileInteger(r)
     case Logic.Implie(l, r) =>
