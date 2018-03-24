@@ -61,7 +61,7 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
 
     case object True extends Pred {
       override def tpe = query.types.any
-      override def prop(key: PropKey) = throw new IllegalArgumentException("True pred has no props")
+      override def prop(key: PropKey) = PropPred.True
       override def definedProps = Map()
       override def substitute(mapping: Map[Value, Value]) = this
       override def &(rhs: Pred) = rhs

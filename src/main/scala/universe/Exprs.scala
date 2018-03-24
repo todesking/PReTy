@@ -123,6 +123,24 @@ trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros w
         INT_EQ(lhs.substitute(mapping), rhs.substitute(mapping))
       override def toString = s"$lhs == $rhs"
     }
+    case class INT_DIV(lhs: CoreExpr, rhs: CoreExpr) extends BinaryOp {
+      override def tpe = T.int
+      override def substitute(mapping: Map[Value, Value]) =
+        INT_DIV(lhs.substitute(mapping), rhs.substitute(mapping))
+      override def toString = s"$lhs / $rhs"
+    }
+    case class INT_MUL(lhs: CoreExpr, rhs: CoreExpr) extends BinaryOp {
+      override def tpe = T.int
+      override def substitute(mapping: Map[Value, Value]) =
+        INT_MUL(lhs.substitute(mapping), rhs.substitute(mapping))
+      override def toString = s"$lhs * $rhs"
+    }
+    case class INT_PLUS(lhs: CoreExpr, rhs: CoreExpr) extends BinaryOp {
+      override def tpe = T.int
+      override def substitute(mapping: Map[Value, Value]) =
+        INT_DIV(lhs.substitute(mapping), rhs.substitute(mapping))
+      override def toString = s"$lhs + $rhs"
+    }
     case class BOOL_Lit(value: Boolean) extends Leaf {
       override def tpe = T.boolean
       override def substitute(mapping: Map[Value, Value]) = this

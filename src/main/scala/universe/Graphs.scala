@@ -21,7 +21,7 @@ trait Graphs { self: Values with Preds with Constraints with Envs with Debugging
     def pushEnv(): Graph =
       copy(envStack = currentEnv :: envStack)
     def popEnv(): Graph =
-      copy(envStack = envStack.tail, currentEnv = envStack.head)
+      copy(envStack = envStack.tail, currentEnv = envStack.head.copy(unnamed = envStack.head.unnamed ++ currentEnv.unnamed))
 
     def subtype(l: Value, r: UnknownPred): Graph =
       copy(constraints = constraints :+ Constraint.FocusLeft(currentEnv, l, r))

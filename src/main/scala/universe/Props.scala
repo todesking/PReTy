@@ -2,7 +2,7 @@ package com.todesking.prety.universe
 
 import com.todesking.prety.Logic
 
-trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflicts with Envs =>
+trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflicts with Envs with Debugging =>
   sealed abstract class PropKey {
     def isTarget(t: TypeSym): Boolean
     def typeFor(t: TypeSym): TypeSym
@@ -53,13 +53,26 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
       prop2l = prop2l + ((naked, prop) -> v)
       v
     }
+  def propFromLogic(l: Logic): Option[(Value, PropKey)] = l match {
+    case lvar: Logic.Var =>
+      Some(prop2l.find { case (k, v) => v == lvar }.get._1)
+    case Logic.IValue(_) | Logic.BValue(_) =>
+      None
+    case other =>
+      throw new RuntimeException(s"$other")
+  }
+
   def propInLogicI(value: Value, prop: PropKey): Logic.LInt =
     propInLogic(value, prop) match {
       case v: Logic.LInt => v
+      case other =>
+        throw new RuntimeException(s"$other")
     }
   def propInLogicB(value: Value, prop: PropKey): Logic.LBool =
     propInLogic(value, prop) match {
       case v: Logic.LBool => v
+      case other =>
+        throw new RuntimeException(s"$other")
     }
 
   trait Prop {
@@ -81,17 +94,44 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
 
     override def solveConstraint(theValue: Value, key: PropKey, env: Env, binding: Map[Value, Pred], lhs: PropPred, rhs: PropPred) = (lhs, rhs) match {
       case (CorePred(_, l), CorePred(_, r)) =>
+        // TODO: Move env loic generation to Solver
         // TODO: check base type constraint
         val v = propInLogic(theValue, key)
 
-        val envLogic = binding.filterKeys(env.values).flatMap {
-          case (value, pred) =>
-            // TODO: use corresponding world
-            pred.definedProps.map {
-              case (prop, ppred) =>
-                this.toLogic(ppred, value)
-            }
-        }.reduceOption(_ & _) getOrElse Logic.True
+        val logicL = compileB(l, v)
+        val logicR = compileB(r, v)
+
+        def getCoreExpr(p: PropPred) = p match { case CorePred(_, e) => e }
+
+        dprint("BE Start")
+        dprint(logicL, logicR)
+        def buildEnvLogic(vars: Set[Logic.Var], skip: Set[Logic.Var]): Logic.LBool = {
+          dprint("BE", vars, skip)
+          (vars -- skip).toSeq.foldLeft((Logic.True: Logic.LBool, skip ++ vars)) {
+            case ((al, askip), vl) =>
+              propFromLogic(vl).fold {
+                // vl represents literal
+                (al, askip)
+              } {
+                case (value, pkey) =>
+                  dprint(al, askip, vl, value, pkey, binding(value))
+                  // TODO: use correspond Prop to build logic
+                  val l = compileB(getCoreExpr(binding(value).prop(pkey)), vl)
+                  val al2 = al & l & buildEnvLogic(l.vars, askip)
+                  (al2, askip ++ al2.vars)
+              }
+          }._1
+        }
+
+        val envLogic: Logic.LBool = v match {
+          case lvar: Logic.Var =>
+            buildEnvLogic(logicL.vars ++ logicR.vars, Set(lvar))
+          case Logic.BValue(_) | Logic.IValue(_) =>
+            buildEnvLogic(logicL.vars ++ logicR.vars, Set())
+          case other =>
+            throw new RuntimeException(s"$other")
+        }
+
         def condsToLogic(l: Map[Value, Pred], not: Boolean) =
           l.flatMap {
             case (value, pred) =>
@@ -106,7 +146,9 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
           }.reduceOption(_ & _) getOrElse Logic.True
         val condLogic = condsToLogic(binding.filterKeys(env.conds), not = false)
         val uncondLogic = condsToLogic(binding.filterKeys(env.unconds), not = true)
-        (Seq((envLogic & condLogic & uncondLogic & compileB(l, v)) --> compileB(r, v)), Seq())
+
+        (Seq((envLogic & condLogic & uncondLogic & logicL) --> logicR), Seq())
+
       case _ =>
         throw new RuntimeException(s"Unsupported pred pair: $lhs, $rhs")
     }
@@ -117,6 +159,8 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
       case E.TheValue(_) =>
         theValue match {
           case v: Logic.LBool => v
+          case other =>
+            throw new RuntimeException(s"$other")
         }
       case E.INT_GT(l, r) =>
         compileI(l, theValue) > compileI(r, theValue)
@@ -132,16 +176,28 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
         compileB(l, theValue) === compileB(r, theValue)
       case E.And(es) =>
         es.map(compileB(_, theValue)).reduce(_ & _)
+      case other =>
+        throw new RuntimeException(s"$other")
     }
     private[this] def compileI(e: CoreExpr, theValue: Logic): Logic.LInt = e match {
       case E.TheValue(_) =>
         theValue match {
           case v: Logic.LInt => v
+          case other =>
+            throw new RuntimeException(s"$other")
         }
       case E.ValueRef(v) =>
         propInLogicI(v, PropKey.Self)
       case E.INT_Lit(x) =>
         Logic.IValue(x)
+      case E.INT_DIV(l, r) =>
+        Logic.Div(compileI(l, theValue), compileI(r, theValue))
+      case E.INT_MUL(l, r) =>
+        Logic.Mul(compileI(l, theValue), compileI(r, theValue))
+      case E.INT_PLUS(l, r) =>
+        Logic.Plus(compileI(l, theValue), compileI(r, theValue))
+      case other =>
+        throw new RuntimeException(s"$other")
     }
   }
 

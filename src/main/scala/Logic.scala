@@ -149,6 +149,14 @@ object Logic {
     override def substituteChild(f: PartialFunction[Logic, Logic]) =
       Minus(lhs.substitute(f), rhs.substitute(f))
   }
+  case class Div(lhs: LInt, rhs: LInt) extends IBin {
+    override def substituteChild(f: PartialFunction[Logic, Logic]) =
+      Div(lhs.substitute(f), rhs.substitute(f))
+  }
+  case class Mul(lhs: LInt, rhs: LInt) extends IBin {
+    override def substituteChild(f: PartialFunction[Logic, Logic]) =
+      Mul(lhs.substitute(f), rhs.substitute(f))
+  }
 
   case class Not(expr: LBool) extends LBool {
     override def vars = expr.vars

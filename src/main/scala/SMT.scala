@@ -68,6 +68,8 @@ object SMT {
     implicit class NumeralFormulaOps(self: IntegerFormula)(implicit ctx: SolverContext) {
       private[this] def ifm = ctx.getFormulaManager.getIntegerFormulaManager
       def +(rhs: IntegerFormula) = ifm.add(self, rhs)
+      def /(rhs: IntegerFormula) = ifm.divide(self, rhs)
+      def *(rhs: IntegerFormula) = ifm.multiply(self, rhs)
       def >(rhs: IntegerFormula) = ifm.greaterThan(self, rhs)
       def >=(rhs: IntegerFormula) = ifm.greaterOrEquals(self, rhs)
       def <(rhs: IntegerFormula) = ifm.lessThan(self, rhs)

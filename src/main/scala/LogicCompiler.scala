@@ -34,6 +34,12 @@ class LogicCompiler(solverContext: SolverContext) {
       ctx.lit(v)
     case v @ Logic.IVar(_, _) =>
       intVar(v)
+    case Logic.Plus(l, r) =>
+      compileInteger(l) + compileInteger(r)
+    case Logic.Div(l, r) =>
+      compileInteger(l) / compileInteger(r)
+    case Logic.Mul(l, r) =>
+      compileInteger(l) * compileInteger(r)
     case unk =>
       throw new RuntimeException(s"SMT-I: $unk")
   }

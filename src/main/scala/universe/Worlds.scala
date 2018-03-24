@@ -168,14 +168,16 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
           CoreExpr.BOOL_EQ(l, r)
         else throw new RuntimeException(s"core.eq: Illegal argument: $l, $r")
     }
-    val intEq = opI("eq", CoreExpr.INT_EQ)._2
     val CoreLib = Macro.dict("core")(
       "eq" -> genericEq,
       "int" -> Macro.dict("core.int")(
-          "eq" -> intEq,
+          opI("eq", CoreExpr.INT_EQ),
           opI("lt", CoreExpr.INT_LT),
           opI("gt", CoreExpr.INT_GT),
           opI("ge", CoreExpr.INT_GE),
+          opI("div", CoreExpr.INT_DIV),
+          opI("mul", CoreExpr.INT_MUL),
+          opI("plus", CoreExpr.INT_PLUS),
       ),
       "bool" -> Macro.dict("core.bool")(
         opB("eq", CoreExpr.BOOL_EQ),
@@ -214,14 +216,13 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
       def &(x: Int): Int
       def ^(x: Int): Int
 
-      // @refine("_: _ == @core.int.plus(this, x)")
-      // @refine.expr("@core.int.plus(this, x)")
+      @refine.simple("@core.int.plus(this, x)")
       def +(x: Int): Int
       // @refine("_: _ == @core.int.minus(this, x)")
       def -(x: Int): Int
-      // @refine("_: _ == @core.int.mult(this, x)")
+      @refine("_: _ == @core.int.mul(this, x)")
       def *(x: Int): Int
-      // @refine("_: _ == @core.int.div(this, x)")
+      @refine.simple("@core.int.div(this, x)")
       def /(x: Int): Int
       // @refine("_: _ == @core.int.mod(this, x)")
       def %(x: Int): Int
