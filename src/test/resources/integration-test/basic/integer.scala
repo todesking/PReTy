@@ -1,4 +1,7 @@
+// pending
 // debugPrint
+
+// TODO: Check the latest version of java-smt supports bitvectors
 import com.todesking.prety.refine
 
 object Integer {

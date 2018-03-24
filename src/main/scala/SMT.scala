@@ -9,9 +9,12 @@ import org.sosy_lab.java_smt.SolverContextFactory
 import org.sosy_lab.java_smt.api.ProverEnvironment
 
 import org.sosy_lab.java_smt.api.Formula
+import org.sosy_lab.java_smt.api.BooleanFormula
 import org.sosy_lab.java_smt.api.NumeralFormula
 import NumeralFormula.IntegerFormula
-import org.sosy_lab.java_smt.api.BooleanFormula
+import org.sosy_lab.java_smt.api.BitvectorFormula
+import org.sosy_lab.java_smt.api.NumeralFormulaManager
+import org.sosy_lab.java_smt.api.IntegerFormulaManager
 
 import scala.language.implicitConversions
 
@@ -54,26 +57,47 @@ object SMT {
     implicit class ContextOps(self: SolverContext) {
       private[this] def fm = self.getFormulaManager
       def intVar(name: String) =
-        fm.getIntegerFormulaManager().makeVariable(name)
+        fm.getIntegerFormulaManager.makeVariable(name)
+      def int32Var(name: String) =
+        fm.getBitvectorFormulaManager.makeVariable(32, name)
       def booleanVar(name: String) =
-        fm.getBooleanFormulaManager().makeVariable(name)
+        fm.getBooleanFormulaManager.makeVariable(name)
       def lit(v: Int) =
-        fm.getIntegerFormulaManager().makeNumber(v.toLong)
+        fm.getIntegerFormulaManager.makeNumber(v.toLong)
       def lit(v: Boolean) =
-        fm.getBooleanFormulaManager().makeBoolean(v)
+        fm.getBooleanFormulaManager.makeBoolean(v)
       def forall(vars: Seq[Formula], expr: BooleanFormula): BooleanFormula =
         self.getFormulaManager.getQuantifiedFormulaManager.forall(vars.asJava, expr)
     }
 
-    implicit class NumeralFormulaOps(self: IntegerFormula)(implicit ctx: SolverContext) {
-      private[this] def ifm = ctx.getFormulaManager.getIntegerFormulaManager
-      def +(rhs: IntegerFormula) = ifm.add(self, rhs)
-      def /(rhs: IntegerFormula) = ifm.divide(self, rhs)
-      def *(rhs: IntegerFormula) = ifm.multiply(self, rhs)
-      def >(rhs: IntegerFormula) = ifm.greaterThan(self, rhs)
-      def >=(rhs: IntegerFormula) = ifm.greaterOrEquals(self, rhs)
-      def <(rhs: IntegerFormula) = ifm.lessThan(self, rhs)
-      def ===(rhs: IntegerFormula) = ifm.equal(self, rhs)
+    abstract class AbstractNumeralOps[A <: NumeralFormula, M <: NumeralFormulaManager[A, A]] {
+      protected val fm: M
+      protected val self: A
+      def +(rhs: A): A = fm.add(self, rhs)
+      def /(rhs: A): A = fm.divide(self, rhs)
+      def *(rhs: A): A = fm.multiply(self, rhs)
+      def >(rhs: A): BooleanFormula = fm.greaterThan(self, rhs)
+      def >=(rhs: A): BooleanFormula = fm.greaterOrEquals(self, rhs)
+      def <(rhs: A): BooleanFormula = fm.lessThan(self, rhs)
+      def ===(rhs: A): BooleanFormula = fm.equal(self, rhs)
+    }
+
+    implicit class IntegerFormulaOps(override val self: IntegerFormula)(implicit ctx: SolverContext)
+      extends AbstractNumeralOps[IntegerFormula, IntegerFormulaManager] {
+      override val fm = ctx.getFormulaManager.getIntegerFormulaManager
+    }
+
+    implicit class BitvectorFormulaOps(self: BitvectorFormula)(implicit ctx: SolverContext) {
+      private[this] val fm = ctx.getFormulaManager.getBitvectorFormulaManager
+      type A = BitvectorFormula
+      val signed = true
+      def +(rhs: A): A = fm.add(self, rhs)
+      def /(rhs: A): A = fm.divide(self, rhs, signed)
+      def *(rhs: A): A = fm.multiply(self, rhs)
+      def >(rhs: A): BooleanFormula = fm.greaterThan(self, rhs, signed)
+      def >=(rhs: A): BooleanFormula = fm.greaterOrEquals(self, rhs, signed)
+      def <(rhs: A): BooleanFormula = fm.lessThan(self, rhs, signed)
+      def ===(rhs: A): BooleanFormula = fm.equal(self, rhs)
     }
 
     implicit class BooleanFormulaOps(self: BooleanFormula)(implicit ctx: SolverContext) {
