@@ -30,7 +30,7 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
 
     def simplify(p: Pred): Pred = p
 
-    def solveSMT(constraints: Seq[GroundConstraint], binding: Map[Value, Pred]): Seq[Conflict] = {
+    def solveSMT(constraints: Seq[GroundConstraint], binding: Map[Value.Naked, Pred]): Seq[Conflict] = {
       val (ls, cs) =
         constraints.map(compileConstraint(_, binding))
           .foldLeft((Seq.empty[LogicConstraint], Seq.empty[Conflict])) {
@@ -40,7 +40,7 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
       cs ++ runSMT(ls)
     }
 
-    private[this] def compileConstraint(c: GroundConstraint, binding: Map[Value, Pred]): (LogicConstraint, Seq[Conflict]) = {
+    private[this] def compileConstraint(c: GroundConstraint, binding: Map[Value.Naked, Pred]): (LogicConstraint, Seq[Conflict]) = {
       val xs =
         propConstraints(c).map {
           case (key, l, r) =>
@@ -72,7 +72,7 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
 
       dprint("SMT Logic:")
       constraints.foreach { c =>
-        def valueString(v: Value) = s"$v: ${c.constraint.binding(v)}"
+        def valueString(v: Value) = s"$v: ${c.constraint.binding(v.naked)}"
         def show(v: Value): String =
           s"${pos(v)} ${valueString(v)}"
 
@@ -91,7 +91,7 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
       val conflicts =
         smt.withProver() { prover =>
           constraints.flatMap { c =>
-            def valueString(v: Value) = s"$v: ${c.constraint.binding(v)}"
+            def valueString(v: Value) = s"$v: ${c.constraint.binding(v.naked)}"
             def show(v: Value): String =
               s"${pos(v)} ${valueString(v)}"
             val compiled = compiler.compileBoolean(c.logic)

@@ -37,7 +37,7 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
     v
   }
 
-  private[this] var prop2l = Map[(Value, PropKey), Logic]()
+  private[this] var prop2l = Map[(Value.Naked, PropKey), Logic]()
   def propInLogic(value: Value, prop: PropKey): Logic =
     prop2l.get((value.naked, prop)) getOrElse {
       val naked = value.naked
@@ -78,7 +78,7 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
   trait Prop {
     val tpe: TypeSym
     def buildPred(src: String, expr: Expr): PropPred
-    def solveConstraint(theValue: Value, key: PropKey, env: Env, binding: Map[Value, Pred], lhs: PropPred, rhs: PropPred): (Seq[Logic.LBool], Seq[Conflict])
+    def solveConstraint(theValue: Value, key: PropKey, env: Env, binding: Map[Value.Naked, Pred], lhs: PropPred, rhs: PropPred): (Seq[Logic.LBool], Seq[Conflict])
     // pred.tpe == this.tpe
     def toLogic(pred: PropPred, theValue: Value): Logic.LBool
   }
@@ -92,7 +92,7 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
       case CorePred(_, p) => compileB(p, propInLogic(theValue, PropKey.Self))
     }
 
-    override def solveConstraint(theValue: Value, key: PropKey, env: Env, binding: Map[Value, Pred], lhs: PropPred, rhs: PropPred) = (lhs, rhs) match {
+    override def solveConstraint(theValue: Value, key: PropKey, env: Env, binding: Map[Value.Naked, Pred], lhs: PropPred, rhs: PropPred) = (lhs, rhs) match {
       case (CorePred(_, l), CorePred(_, r)) =>
         // TODO: Move env loic generation to Solver
         // TODO: check base type constraint
@@ -114,9 +114,9 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
                 (al, askip)
               } {
                 case (value, pkey) =>
-                  dprint(al, askip, vl, value, pkey, binding(value))
+                  dprint(al, askip, vl, value, pkey, binding(value.naked))
                   // TODO: use correspond Prop to build logic
-                  val l = compileB(getCoreExpr(binding(value).prop(pkey)), vl)
+                  val l = compileB(getCoreExpr(binding(value.naked).prop(pkey)), vl)
                   val al2 = al & l & buildEnvLogic(l.vars, askip)
                   (al2, askip ++ al2.vars)
               }
@@ -132,7 +132,7 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
             throw new RuntimeException(s"$other")
         }
 
-        def condsToLogic(l: Map[Value, Pred], not: Boolean) =
+        def condsToLogic(l: Map[Value.Naked, Pred], not: Boolean) =
           l.flatMap {
             case (value, pred) =>
               pred.definedProps.map {
@@ -144,8 +144,8 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
                   }
               }
           }.reduceOption(_ & _) getOrElse Logic.True
-        val condLogic = condsToLogic(binding.filterKeys(env.conds), not = false)
-        val uncondLogic = condsToLogic(binding.filterKeys(env.unconds), not = true)
+        val condLogic = condsToLogic(binding.filterKeys(env.conds.map(_.naked)), not = false)
+        val uncondLogic = condsToLogic(binding.filterKeys(env.unconds.map(_.naked)), not = true)
 
         (Seq((envLogic & condLogic & uncondLogic & logicL) --> logicR), Seq())
 

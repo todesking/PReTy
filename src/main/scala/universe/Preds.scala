@@ -82,18 +82,16 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
             key -> pred
         })
 
-    def exactInt(w: World, value: Value, v: Int): Pred =
-      compile(
-        w,
-        Map("_" -> Lang.Expr.Op(Lang.Expr.TheValue, "==", Lang.Expr.LitInt(v))),
+    def exactInt(v: Int): Pred =
+      Pred(
         query.types.int,
-        Env.empty)
-    def exactBoolean(w: World, value: Value, v: Boolean): Pred =
-      compile(
-        w,
-        Map("_" -> Lang.Expr.Op(Lang.Expr.TheValue, "==", Lang.Expr.LitBoolean(v))),
+        Map(
+          PropKey.Self -> CorePred(s"_ == $v", CoreExpr.INT_EQ(CoreExpr.TheValue(query.types.int), CoreExpr.INT_Lit(v)))))
+    def exactBoolean(v: Boolean): Pred =
+      Pred(
         query.types.boolean,
-        Env.empty)
+        Map(
+          PropKey.Self -> CorePred(s"_ == $v", CoreExpr.BOOL_EQ(CoreExpr.TheValue(query.types.boolean), CoreExpr.BOOL_Lit(v)))))
   }
 
   trait PropPred {
@@ -118,23 +116,23 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
   }
 
   sealed abstract class UnknownPred {
-    def reveal(binding: Map[Value, Pred]): Pred = revealOpt(binding) getOrElse {
+    def reveal(binding: Map[Value.Naked, Pred]): Pred = revealOpt(binding) getOrElse {
       throw new RuntimeException(s"Can't reveal $this(env=$binding)")
     }
-    def revealOpt(binding: Map[Value, Pred]): Option[Pred]
+    def revealOpt(binding: Map[Value.Naked, Pred]): Option[Pred]
     def toValue: Option[Value]
   }
   object UnknownPred {
     case class OfValue(value: Value) extends UnknownPred {
       def substitute(mapping: Map[Value, Value]) =
         Substitute(mapping, this)
-      override def revealOpt(binding: Map[Value, Pred]) = binding.get(value)
+      override def revealOpt(binding: Map[Value.Naked, Pred]) = binding.get(value.naked)
       override def toValue = Some(value)
       override def toString = s"?($value)"
     }
 
     case class Substitute(mapping: Map[Value, Value], original: UnknownPred) extends UnknownPred {
-      override def revealOpt(binding: Map[Value, Pred]) =
+      override def revealOpt(binding: Map[Value.Naked, Pred]) =
         original.revealOpt(binding).map(_.substitute(mapping))
       override def toValue = original.toValue
       override def toString = s"[${mapping.toSeq.map { case (k, v) => s"$k -> $v" }.mkString(", ")}](${original.toValue.get})"

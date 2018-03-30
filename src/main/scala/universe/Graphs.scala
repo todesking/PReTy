@@ -3,7 +3,7 @@ package com.todesking.prety.universe
 trait Graphs { self: Values with Preds with Constraints with Envs with Debugging =>
   case class Graph(
     constraints: Seq[Constraint],
-    binding: Map[Value, Pred],
+    binding: Map[Value.Naked, Pred],
     envStack: List[Env],
     currentEnv: Env) {
 
@@ -27,9 +27,9 @@ trait Graphs { self: Values with Preds with Constraints with Envs with Debugging
       copy(constraints = constraints :+ Constraint.FocusRight(currentEnv, l, r))
 
     def bind(vps: Map[Value, Pred]) =
-      copy(binding = binding ++ vps)
+      copy(binding = binding ++ vps.map { case (k, v) => k.naked -> v })
 
-    lazy val allValues = constraints.flatMap(_.values).toSet
+    lazy val allValues = constraints.flatMap(_.values.map(_.naked)).toSet
     lazy val assignedValues = binding.keySet
     lazy val unassignedValues = allValues -- assignedValues
 
@@ -37,21 +37,29 @@ trait Graphs { self: Values with Preds with Constraints with Envs with Debugging
     def groundConstraints: Seq[GroundConstraint] =
       constraints.map(_.ground(binding))
 
-    def hasUnassignedIncomingEdge(v: Value): Boolean =
-      incomingEdges(v).flatMap(_.lhs.toValue).exists(unassignedValues)
+    def hasUnassignedIncomingEdge(v: Value.Naked): Boolean =
+      incomingEdges(v).flatMap(_.lhs.toValue.map(_.naked)).exists(unassignedValues)
 
-    def incomingEdges(v: Value): Set[Constraint] =
+    def incomingEdges(v: Value.Naked): Set[Constraint] =
       constraints.filter { c => c.rhs.toValue.contains(v) }.toSet
 
-    @scala.annotation.tailrec
-    final def infer(): Graph = {
-      val next = infer0()
+    def infer(): Graph = {
+      val next = prepareBindings().infer0()
       if (next.binding == this.binding) this
-      else next.infer()
+      else next.infer0()
     }
 
-    private final def infer0(): Graph = {
-      // TODO: weaken with visibility
+    private[this] def prepareBindings(): Graph = {
+      copy(
+        binding = binding ++ unassignedValues.collect {
+          case v @ Value.IntLiteral(i) =>
+            v -> Pred.exactInt(i)
+          case v @ Value.BooleanLiteral(b) =>
+            v -> Pred.exactBoolean(b)
+        })
+    }
+
+    protected def infer0(): Graph = {
       val newBinding =
         unassignedValues
           .filterNot(hasUnassignedIncomingEdge)

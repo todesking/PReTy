@@ -15,7 +15,7 @@ trait Constraints { self: ForeignTypes with Values with Preds with Envs =>
 
     // TODO: tpe
 
-    def ground(binding: Map[Value, Pred]): GroundConstraint =
+    def ground(binding: Map[Value.Naked, Pred]): GroundConstraint =
       GroundConstraint(this, binding, lhs.toValue, rhs.toValue, lhs.reveal(binding), rhs.reveal(binding))
 
     def arrowString: String
@@ -35,7 +35,7 @@ trait Constraints { self: ForeignTypes with Values with Preds with Envs =>
   }
 
   // TODO: s/Ground/Concrete
-  case class GroundConstraint(constraint: Constraint, binding: Map[Value, Pred], lvalue: Option[Value], rvalue: Option[Value], lhs: Pred, rhs: Pred) {
+  case class GroundConstraint(constraint: Constraint, binding: Map[Value.Naked, Pred], lvalue: Option[Value], rvalue: Option[Value], lhs: Pred, rhs: Pred) {
     override def toString =
       s"${lvalue getOrElse "(no value)"} $lhs ${constraint.arrowString} $rhs ${rvalue getOrElse "(no value)"}"
     def focus: Value = constraint.focus
@@ -44,7 +44,7 @@ trait Constraints { self: ForeignTypes with Values with Preds with Envs =>
   }
 
   case class LogicConstraint(constraint: GroundConstraint, logic: Logic) {
-    private[this] def valueString(v: Value) = s"$v: ${constraint.binding(v)}"
+    private[this] def valueString(v: Value) = s"$v: ${constraint.binding(v.naked)}"
     override def toString = s"(${constraint.env.values.map(valueString).mkString(", ")})(${constraint.env.conds.toSeq.map(valueString).mkString(", ")})(${constraint.env.unconds.map(valueString) mkString (",")}) => $constraint; $logic"
   }
 }
