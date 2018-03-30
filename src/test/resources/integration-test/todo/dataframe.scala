@@ -21,6 +21,17 @@ trait Column {
 @refine.proxy("org.apache.spark.sql.DataSet")
 @refine.defineMemberUF("@schema: SchemaProperty")
 trait Dataset[A] {
-  @refine("cs: {#1: {@schema: @df.canSelect(this.@schema, _)}, _: {@schema: @df.Select(this.@schema, cs.@values)")
+  @refine("cs: {#1: this.@Selectable}, _: this.@Select(cs.@items: _*)")
   def select(cs: Seq[Column]): Dataset[A]
+}
+
+object DF {
+  @refine("df: @DF{id: Int}")
+  def foo(df: DataFrame): Unit = {
+    df.select('id, ('id + 1).as("id_plus_1"))
+  }
+
+  @refine("col: df.@Selectable(col), _: df.@Select(col, @df.col{count: Long})")
+  def groupCount(df: DataFrame, col: Column): DataFrame =
+    df.groupBy(col).count
 }
