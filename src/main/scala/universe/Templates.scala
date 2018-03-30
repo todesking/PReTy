@@ -34,7 +34,6 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
           g.subtype(a, p.substitute(argSub)).let(name, a)
       }.subtypeR(ret.substitute(argSub), aRet)
         .popEnv()
-        .visible(aRet)
     }
   }
 

@@ -10,9 +10,6 @@ trait Graphs { self: Values with Preds with Constraints with Envs with Debugging
     def let(name: String, value: Value): Graph =
       copy(currentEnv = currentEnv.bind(name -> value))
 
-    def visible(v: Value*): Graph =
-      copy(currentEnv = currentEnv.bindUnnamed(v: _*))
-
     def cond(v: Value): Graph =
       copy(currentEnv = currentEnv.cond(v))
     def condNot(v: Value): Graph =
@@ -21,7 +18,7 @@ trait Graphs { self: Values with Preds with Constraints with Envs with Debugging
     def pushEnv(): Graph =
       copy(envStack = currentEnv :: envStack)
     def popEnv(): Graph =
-      copy(envStack = envStack.tail, currentEnv = envStack.head.copy(unnamed = envStack.head.unnamed ++ currentEnv.unnamed))
+      copy(envStack = envStack.tail, currentEnv = envStack.head)
 
     def subtype(l: Value, r: UnknownPred): Graph =
       copy(constraints = constraints :+ Constraint.FocusLeft(currentEnv, l, r))

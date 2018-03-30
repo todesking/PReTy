@@ -86,7 +86,7 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
         graph.bind(Map(value -> Pred.True))
 
       case AST.Apply(self, sym, value, argss) =>
-        val g = graph.pushEnv().visible(argss.flatten.map(_.value): _*)
+        val g = graph.pushEnv()
         // TODO: register template.binding (or make global binding repo) for foreign members
         val template = world.templates.get(sym)
         val g1 = buildGraph(g, self, inLocal)
