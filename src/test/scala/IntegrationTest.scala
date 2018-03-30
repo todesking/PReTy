@@ -5,6 +5,8 @@ import com.todesking.prety.scalac_plugin.PretyPlugin
 import org.scalatest.FunSpec
 import scala.reflect.io.AbstractFile
 
+import com.todesking.prety.util.uniqueMap
+
 class IntegrationTest extends FunSpec {
   init()
 
@@ -55,25 +57,34 @@ class IntegrationTest extends FunSpec {
     val debug = content.startsWith("// debugPrint")
 
     val markerPat = """\s*//\s*\^\s*(.*)""".r
-    val expectedErrors: Seq[(LocalPos, String)] = content.split("\n").zipWithIndex.collect {
-      case (l @ markerPat(msg), lnum) =>
-        val col = l.indexOf("^")
-        assert(col >= 0)
-        LocalPos(lnum + 1 - 1, col + 1) -> msg.replaceAll("\\\\n", "\n")
-    }
+    val expectedErrors: Map[LocalPos, String] = uniqueMap(
+      content.split("\n").zipWithIndex.collect {
+        case (l @ markerPat(msg), lnum) =>
+          val col = l.indexOf("^")
+          assert(col >= 0)
+          LocalPos(lnum + 1 - 1, col + 1) -> msg.replaceAll("\\\\n", "\n")
+      })
 
     val result = Compiler.compile(f.path, debug)
     assert(result.infos == Seq())
     assert(result.warnings == Seq())
 
-    val eErrors = expectedErrors.toSet
-    val errors = result.errors.map { e => (LocalPos(e.pos)) -> e.message }.toSet
+    val errors = uniqueMap(result.errors.map { e => LocalPos(e.pos) -> e.message })
+
+    val happendErrors = errors.filter {
+      case (k, v) =>
+        expectedErrors.get(k).filter { pat => pat == "" || v == pat }.nonEmpty
+    }
+    val unexpectedErrors = errors.filter {
+      case (k, v) =>
+        expectedErrors.get(k).filter { pat => pat == "" || v == pat }.isEmpty
+    }
+    val nothappenedErrors = expectedErrors.filter {
+      case (k, pat) =>
+        errors.get(k).filter { v => pat == "" || v == pat }.isEmpty
+    }
 
     if (debug) {
-      val nothappenedErrors = (eErrors -- errors).toSeq.sortBy(_._1)
-      val happendErrors = (errors intersect eErrors).toSeq.sortBy(_._1)
-      val unexpectedErrors = (errors -- eErrors).toSeq.sortBy(_._1)
-
       happendErrors.foreach {
         case (pos, msg) =>
           println(s"Expected Error: $pos, $msg")
@@ -88,8 +99,8 @@ class IntegrationTest extends FunSpec {
       }
     }
 
-    assert(errors == eErrors)
-
+    assert(unexpectedErrors.isEmpty)
+    assert(nothappenedErrors.isEmpty)
   }
 }
 
