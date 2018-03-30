@@ -23,6 +23,12 @@ trait Values { self: ForeignTypes with Constraints with Preds =>
       override def naked = this
       override val toString = name
     }
+    case class BooleanLiteral(v: Boolean) extends Naked {
+      override val name = s"boolean($v)"
+      override val tpe = query.types.boolean
+      override def naked = this
+      override val toString = name
+    }
     case class Ref(id: Int, parent: Value) extends Value {
       override val name = s"ref($parent)#$id"
       override val tpe = parent.tpe

@@ -104,7 +104,11 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
 
       case AST.IntLiteral(value, lit) =>
         graph.bind(Map(
-          value -> Pred.exactInt(world, value, lit))).visible(value)
+          value -> Pred.exactInt(world, value, lit)))
+
+      case AST.BooleanLiteral(value, lit) =>
+        graph.bind(Map(
+          value -> Pred.exactBoolean(world, value, lit)))
 
       case AST.UnitLiteral(value) =>
         graph.bind(Map(value -> Pred.True))

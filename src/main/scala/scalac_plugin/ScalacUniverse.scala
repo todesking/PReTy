@@ -134,6 +134,7 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
       case Literal(Constant(v)) =>
         v match {
           case i: Int => AST.IntLiteral(valueRepo.newRef(Value.IntLiteral(i), t.pos), i)
+          case b: Boolean => AST.BooleanLiteral(valueRepo.newRef(Value.BooleanLiteral(b), t.pos), b)
           case u: Unit => AST.UnitLiteral(valueRepo.newExpr(s"lit:()", t.pos, t.tpe))
         }
       case sel @ Select(qual, name) =>

@@ -48,8 +48,12 @@ object Lang {
     def the_value = "_" ^^ { _ => Expr.TheValue }
     def name = "[a-zA-Z_][a-zA-Z_0-9]*".r
     def op = "[-+<>:*/=]+".r
-    def lit = int
+    def lit = int | bool
     def int = "0|[1-9][0-9]*".r ^^ { v => Expr.LitInt(v.toInt) }
+    def bool = ("true" | "false") ^^ {
+      case "true" => Expr.LitBoolean(true)
+      case "false" => Expr.LitBoolean(false)
+    }
   }
 
   case class Def(props: Map[String, Expr])
@@ -72,6 +76,7 @@ object Lang {
       override def names = Set()
     }
     case class LitInt(value: Int) extends Lit(value.toString)
+    case class LitBoolean(value: Boolean) extends Lit(value.toString)
 
     case class Op(lhs: Expr, op: String, rhs: Expr) extends Expr(s"$lhs $op $rhs") {
       override def names = lhs.names ++ rhs.names

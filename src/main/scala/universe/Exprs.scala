@@ -26,6 +26,8 @@ trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros w
         else Right(CE.ValueRef(env.findValue(name)))
       case E.LitInt(value) =>
         Right(CE.INT_Lit(value))
+      case E.LitBoolean(value) =>
+        Right(CE.BOOL_Lit(value))
       case E.Op(lhs, op, rhs) =>
         val l = compile(w, lhs, env, theType, sub)
         val r = compile(w, rhs, env, theType, sub)

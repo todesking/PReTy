@@ -88,6 +88,12 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
         Map("_" -> Lang.Expr.Op(Lang.Expr.TheValue, "==", Lang.Expr.LitInt(v))),
         query.types.int,
         Env.empty)
+    def exactBoolean(w: World, value: Value, v: Boolean): Pred =
+      compile(
+        w,
+        Map("_" -> Lang.Expr.Op(Lang.Expr.TheValue, "==", Lang.Expr.LitBoolean(v))),
+        query.types.boolean,
+        Env.empty)
   }
 
   trait PropPred {

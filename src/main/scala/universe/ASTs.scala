@@ -53,6 +53,8 @@ trait ASTs { self: ForeignTypes with Values =>
     }
     case class IntLiteral(value: Value, lit: Int) extends Literal {
     }
+    case class BooleanLiteral(value: Value, lit: Boolean) extends Literal {
+    }
     case class UnitLiteral(value: Value) extends Literal {
       override val lit = ()
     }
