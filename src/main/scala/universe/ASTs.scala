@@ -18,21 +18,19 @@ trait ASTs { self: ForeignTypes with Values =>
 
     sealed abstract class Term extends AST with InImpl
     sealed abstract class Expr extends Term {
-      def tpe: TypeSym // TODO: tpe = value.tpe
       def value: Value
     }
-    case class Block(tpe: TypeSym, value: Value, statements: Seq[InImpl], expr: Expr) extends Expr {
+    case class Block(value: Value, statements: Seq[InImpl], expr: Expr) extends Expr {
       override def pretty = PP(
         s"Block $value",
         PP.indent(statements.map(_.pretty) :+ expr.pretty))
     }
-    case class This(tpe: TypeSym, value: Value) extends Expr {
+    case class This(value: Value) extends Expr {
       override def pretty = "This"
     }
     case class Apply(
       self: Expr,
       sym: DefSym,
-      tpe: TypeSym,
       value: Value,
       argss: Seq[Seq[Expr]]) extends Expr {
       override def pretty = PP(
@@ -43,11 +41,10 @@ trait ASTs { self: ForeignTypes with Values =>
     // TODO: where is `self`?
     case class LocalRef(
       sym: DefSym,
-      tpe: TypeSym,
       value: Value) extends Expr {
       override def pretty = s"LocalRef($sym)"
     }
-    case class Super(tpe: TypeSym, value: Value) extends Expr {
+    case class Super(value: Value) extends Expr {
       override def pretty = s"Super $value"
     }
     sealed abstract class Literal extends Expr {
@@ -55,15 +52,12 @@ trait ASTs { self: ForeignTypes with Values =>
       override def pretty = s"Lit($lit) $value"
     }
     case class IntLiteral(value: Value, lit: Int) extends Literal {
-      override def tpe = ???
     }
     case class UnitLiteral(value: Value) extends Literal {
       override val lit = ()
-      override def tpe = ???
     }
 
     case class If(value: Value, cond: Expr, thenp: Expr, elsep: Expr) extends Expr {
-      override def tpe = value.tpe
       override def pretty = PP(
         s"if $value",
         PP.indent(cond.pretty),
@@ -76,7 +70,6 @@ trait ASTs { self: ForeignTypes with Values =>
 
     case class FunDef(
       sym: DefSym,
-      tpe: TypeSym,
       body: Option[Expr]) extends Term {
       override def pretty = PP(
         s"FunDef($sym)",
@@ -85,7 +78,6 @@ trait ASTs { self: ForeignTypes with Values =>
 
     case class ValDef(
       sym: DefSym,
-      tpe: TypeSym,
       body: Option[Expr]) extends Term {
       override def pretty = PP(
         s"ValDef($sym)",

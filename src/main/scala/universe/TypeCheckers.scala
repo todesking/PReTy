@@ -52,7 +52,7 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
     def buildGraph(graph: Graph, t: AST.InImpl, inLocal: Boolean): Graph = t match {
       case AST.CTODef(impl) => unk(t)
 
-      case AST.ValDef(sym, tpe, body) =>
+      case AST.ValDef(sym, body) =>
         // TODO: Use default binding if public
         val template = if (inLocal) world.templates.registerLocal(sym, graph.currentEnv) else world.templates.get(sym)
         val g = if (inLocal) graph.let(query.name(sym), template.ret) else graph
@@ -62,7 +62,7 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
             .subtype(b.value, template.ret)
         }.bind(template.bindings)
 
-      case AST.FunDef(sym, tpe, body) =>
+      case AST.FunDef(sym, body) =>
         // TODO: Local def is forward-referenciable: Need two-phase traverse?
         if (query.isAccessor(sym)) {
           graph
@@ -76,16 +76,16 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
           }.bind(template.bindings)
         }
 
-      case AST.Block(tpe, value, stats, expr) =>
+      case AST.Block(value, stats, expr) =>
         val intro = stats.foldLeft(graph.pushEnv()) { case (g, s) => buildGraph(g, s, inLocal) }
         buildGraph(intro, expr, inLocal)
           .subtype(expr.value, value)
           .popEnv()
 
-      case AST.This(tpe, value) =>
+      case AST.This(value) =>
         graph.bind(Map(value -> Pred.True))
 
-      case AST.Apply(self, sym, tpe, value, argss) =>
+      case AST.Apply(self, sym, value, argss) =>
         val g = graph.pushEnv().visible(argss.flatten.map(_.value): _*)
         // TODO: register template.binding (or make global binding repo) for foreign members
         val template = world.templates.get(sym)
@@ -94,11 +94,11 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
         template.apply(g2, self.value, value, argss.map(_.map(_.value)))
           .popEnv()
 
-      case AST.LocalRef(sym, tpe, value) =>
+      case AST.LocalRef(sym, value) =>
         val fv = world.values.functionValue(sym)
         graph.subtype(fv.ret, value)
 
-      case AST.Super(tpe, value) =>
+      case AST.Super(value) =>
         // TODO: we can do something here
         graph
 

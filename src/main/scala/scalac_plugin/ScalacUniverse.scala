@@ -112,11 +112,10 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
         Seq(
           AST.FunDef(
             sym,
-            sym.returnType,
             if (rhs.isEmpty) None else Some(parseExpr(rhs))))
       case vd @ ValDef(mods, name, tpt, rhs) =>
         val sym = vd.symbol.asTerm
-        Seq(AST.ValDef(sym, sym.selfType, if (rhs.isEmpty) None else Some(parseExpr(rhs))))
+        Seq(AST.ValDef(sym, if (rhs.isEmpty) None else Some(parseExpr(rhs))))
       case other =>
         Seq(parseExpr(other))
     }
@@ -124,15 +123,14 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
     def parseExpr(t: Tree): AST.Expr = t match {
       case b @ Block(stats, expr) =>
         AST.Block(
-          b.tpe,
           valueRepo.newExpr("{...}", t.pos, b.tpe),
           stats.flatMap(parseImpl),
           parseExpr(expr))
       case Apply(fun, args) =>
         val (self, funSym, tpe) = parseFun(fun)
-        AST.Apply(self, funSym, tpe, valueRepo.newExpr("app:" + t.toString, t.pos, t.tpe), Seq(args.map(parseExpr)))
+        AST.Apply(self, funSym, valueRepo.newExpr("app:" + t.toString, t.pos, t.tpe), Seq(args.map(parseExpr)))
       case t @ This(qual) =>
-        AST.This(t.tpe, valueRepo.newExpr(s"this", t.pos, t.tpe))
+        AST.This(valueRepo.newExpr(s"this", t.pos, t.tpe))
       case Literal(Constant(v)) =>
         v match {
           case i: Int => AST.IntLiteral(valueRepo.newRef(Value.IntLiteral(i), t.pos), i)
@@ -141,12 +139,12 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
       case sel @ Select(qual, name) =>
         val target = parseExpr(qual)
         val sym = sel.symbol.asTerm
-        AST.Apply(target, sym, sel.tpe, valueRepo.newExpr("sel:" + sel.toString, sel.pos, sel.tpe), Seq())
+        AST.Apply(target, sym, valueRepo.newExpr("sel:" + sel.toString, sel.pos, sel.tpe), Seq())
       case s @ Super(qual, mix) =>
-        AST.Super(s.tpe, valueRepo.newExpr(s.toString, t.pos, t.tpe))
+        AST.Super(valueRepo.newExpr(s.toString, t.pos, t.tpe))
       case i @ Ident(name) =>
         val fv = valueRepo.functionValue(i.symbol.asTerm)
-        AST.LocalRef(i.symbol.asTerm, i.tpe, valueRepo.newRef(fv.ret, i.pos))
+        AST.LocalRef(i.symbol.asTerm, valueRepo.newRef(fv.ret, i.pos))
       case If(cond, thenp, elsep) =>
         AST.If(valueRepo.newExpr("if", t.pos, t.tpe), parseExpr(cond), parseExpr(thenp), parseExpr(elsep))
       case unk => unknown("Expr", unk)

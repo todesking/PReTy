@@ -14,4 +14,9 @@ object refine {
   // When calling simple method in Scala, treated as _: {_: _ == expr}
   // When calling from refinement spec, substitute(expr, params -> args) are inserted.
   class simple(expr: String) extends StaticAnnotation
+
+  @refine("cond: _ == true")
+  def assert(cond: Boolean): Unit = {
+    Predef.assert(cond)
+  }
 }
