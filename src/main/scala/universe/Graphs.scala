@@ -81,6 +81,6 @@ trait Graphs { self: Values with Preds with Constraints with Envs with Debugging
     }
   }
   object Graph {
-    def build(env: Env): Graph = new Graph(Seq(), Map(),Map(), Nil, env)
+    def build(env: Env): Graph = new Graph(Seq(), Map(), Map(), Nil, env)
   }
 }

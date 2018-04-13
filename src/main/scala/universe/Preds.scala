@@ -132,9 +132,10 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
           .map { pred =>
             Pred(
               key.typeFor(pred.tpe),
-              Map(PropKey.Self -> pred.prop(key))
-            )
+              Map(PropKey.Self -> pred.prop(key)))
           }
+      override def toValue = self.toValue
+      override def toString = s"$self.$key"
     }
 
     case class OfValue(value: Value) extends UnknownPred {

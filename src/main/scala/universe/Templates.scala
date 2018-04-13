@@ -104,7 +104,7 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
                 target -> pred
             }
         }
-      val defaultBindings = Map.empty[Value, Pred]
+      val defaultBindings = Map.empty[Value, UnknownPred]
       Template(fv.self, fv.ret, fv.paramss, bindings, defaultBindings, makro)
     }
   }
