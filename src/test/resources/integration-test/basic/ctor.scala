@@ -6,6 +6,7 @@ class C0 {
 }
 class C1(val v: Int) {
 }
+trait T
 
 object Ctor {
   def foo(): Unit = {
@@ -18,7 +19,10 @@ object Ctor {
     @refine("_: {v: _ > 1}")
     val c2 = new C1(2)
 
+    val c3 = new C1(3) with T
+
     assert(c1.v == 1)
     assert(c2.v > 1)
+    assert(c3.v == 3)
   }
 }

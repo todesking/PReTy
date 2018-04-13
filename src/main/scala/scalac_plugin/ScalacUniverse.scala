@@ -97,12 +97,16 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
         stats.flatMap(parseTop)
       case ModuleDef(mods, name, impl) =>
         Seq(AST.CTODef(impl.body.flatMap(parseImpl)))
+      case ClassDef(mods, name, tparams, impl) =>
+        Seq(AST.CTODef(impl.body.flatMap(parseImpl)))
       case Import(expr, selectors) =>
         Seq()
       case unk => unknown("Top", unk)
     }
 
     def parseImpl(t: Tree): Seq[AST.InImpl] = t match {
+      case t if t.isEmpty =>
+        Seq()
       case Import(expr, selectors) =>
         Seq()
       case dd @ DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
@@ -148,6 +152,8 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
         AST.LocalRef(i.symbol.asTerm, valueRepo.newRef(fv.ret, i.pos))
       case If(cond, thenp, elsep) =>
         AST.If(valueRepo.newExpr("if", t.pos, t.tpe), parseExpr(cond), parseExpr(thenp), parseExpr(elsep))
+      case New(tpt) =>
+        unknown("New", tpt)
       case unk => unknown("Expr", unk)
     }
 
