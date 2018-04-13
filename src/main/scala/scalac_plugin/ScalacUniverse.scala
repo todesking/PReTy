@@ -16,6 +16,17 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
     global.reporter.error(pos, msg)
   }
 
+  override def dumpDefSym(f: DefSym) = {
+    Seq(
+      'str -> f.toString,
+    ) ++ (if(f.isTerm) {
+      Seq(
+        'stable -> f.asTerm.isStable,
+        'paramAccessor -> f.asTerm.isParamAccessor,
+      )
+    } else Seq())
+  }.toSeq.mkString(", ")
+
   object Annotations {
     private[this] def load(name: String) = global.rootMirror.getRequiredClass(name).tpe
     val refine = load("com.todesking.prety.refine")
@@ -46,9 +57,12 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
       }
     }
     override def pos(f: DefSym) = f.pos
+    override def stableValueMembers(t: TypeSym) =
+      t.members.map(_.asTerm).filter(_.isStable).toSeq
 
     override def isAccessor(f: DefSym) = f.isAccessor
     override def unwrapAccessor(f: DefSym) = f.accessed.asTerm
+    override def isPrimaryCtor(f: DefSym) = f.isPrimaryConstructor
 
     override def isLocal(f: DefSym) = f.isLocalToBlock
 
@@ -152,8 +166,8 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
         AST.LocalRef(i.symbol.asTerm, valueRepo.newRef(fv.ret, i.pos))
       case If(cond, thenp, elsep) =>
         AST.If(valueRepo.newExpr("if", t.pos, t.tpe), parseExpr(cond), parseExpr(thenp), parseExpr(elsep))
-      case New(tpt) =>
-        unknown("New", tpt)
+      case New(Ident(name)) =>
+        AST.New(valueRepo.newNew(t.pos, t.tpe))
       case unk => unknown("Expr", unk)
     }
 

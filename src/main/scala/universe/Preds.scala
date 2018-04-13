@@ -123,6 +123,20 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
     def toValue: Option[Value]
   }
   object UnknownPred {
+    def ref(v: Value, k: PropKey): UnknownPred =
+      Ref(OfValue(v), k)
+
+    case class Ref(self: UnknownPred, key: PropKey) extends UnknownPred {
+      override def revealOpt(binding: Map[Value.Naked, Pred]) =
+        self.revealOpt(binding)
+          .map { pred =>
+            Pred(
+              key.typeFor(pred.tpe),
+              Map(PropKey.Self -> pred.prop(key))
+            )
+          }
+    }
+
     case class OfValue(value: Value) extends UnknownPred {
       def substitute(mapping: Map[Value, Value]) =
         Substitute(mapping, this)

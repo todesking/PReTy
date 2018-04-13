@@ -59,6 +59,10 @@ trait ASTs { self: ForeignTypes with Values =>
       override val lit = ()
     }
 
+    case class New(value: Value) extends Expr {
+      override def pretty = s"New(${value.tpe})"
+    }
+
     case class If(value: Value, cond: Expr, thenp: Expr, elsep: Expr) extends Expr {
       override def pretty = PP(
         s"if $value",

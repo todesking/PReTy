@@ -70,6 +70,9 @@ trait Values { self: ForeignTypes with Constraints with Preds =>
     def newExpr(name: String, pos: Pos, tpe: TypeSym): Value =
       fresh(name, pos, tpe)
 
+    def newNew(pos: Pos, tpe: TypeSym): Value =
+      fresh(s"new($tpe)", pos, tpe)
+
     private[this] var functionValues = Map.empty[DefSym, FunctionValue]
     def functionValue(f: DefSym): FunctionValue =
       functionValues.get(f) getOrElse {

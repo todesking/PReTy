@@ -23,11 +23,11 @@ object Lang {
   object Parser extends scala.util.parsing.combinator.RegexParsers {
     def all: Parser[Map[String, Def]] = repsep(pred, ",").map(uniqueMap)
 
-    def pred = ((name <~ ':') ~ props) ^^ { case n ~ ps => (n, Def(uniqueMap(ps))) }
+    def pred = ((name <~ ":") ~ props) ^^ { case n ~ ps => (n, Def(uniqueMap(ps))) }
     def props = props_full | props_one
-    def props_full = ('{' ~> repsep(prop, ",")) <~ '}'
+    def props_full = ("{" ~> repsep(prop, ",")) <~ "}"
     def props_one = expr ^^ { e => Seq("_" -> e) }
-    def prop = name ~ (':' ~> expr) ^^ { case n ~ p => (n, p) }
+    def prop = name ~ (":" ~> expr) ^^ { case n ~ p => (n, p) }
     def expr: Parser[Expr] = opapp | expr1
     def expr1 = group | atom
     def opapp: Parser[Expr] = expr1 ~ op ~ expr1 ^^ {
@@ -38,12 +38,12 @@ object Lang {
       case e ~ Some(args) => Expr.App(e, args)
       case e ~ None => e
     })
-    def ref = (the_value | ident | makro) ~ rep('.' ~> name) ^^ {
+    def ref = (the_value | ident | makro) ~ rep("." ~> name) ^^ {
       case id ~ names =>
         names.foldLeft[Expr](id) { (m, id) => Expr.Select(m, id) }
     }
     def makro = "@" ~> name ^^ { id => Expr.MacroRef(id) }
-    def app: Parser[Seq[Expr]] = ('(' ~> repsep(expr, ",")) <~ ')'
+    def app: Parser[Seq[Expr]] = ("(" ~> repsep(expr, ",")) <~ ")"
     def ident = name ^^ { id => Expr.Ident(id) }
     def the_value = "_" ^^ { _ => Expr.TheValue }
     def name = "[a-zA-Z_][a-zA-Z_0-9]*".r

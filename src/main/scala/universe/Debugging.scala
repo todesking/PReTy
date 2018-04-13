@@ -15,4 +15,7 @@ trait Debugging { self: ForeignTypes =>
   // for temporal debugging
   def ppp(s: Any*): Unit =
     dprint(s: _*)
+
+  def dumpDefSym(f: DefSym): String =
+    f.toString
 }

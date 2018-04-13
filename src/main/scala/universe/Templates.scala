@@ -2,12 +2,13 @@ package com.todesking.prety.universe
 
 import com.todesking.prety.Lang
 
-trait Templates { self: ForeignTypes with Preds with Graphs with Values with Worlds with Envs with Macros =>
+trait Templates { self: ForeignTypes with Preds with Graphs with Values with Worlds with Envs with Macros with Debugging =>
   case class Template(
     self: Value,
     ret: Value,
     argss: Seq[Seq[(String, Value)]],
     bindings: Map[Value, Pred],
+    defaultBindings: Map[Value, UnknownPred],
     makro: Option[Macro]) {
     override def toString =
       s"$self.(${argss.map(_.map { case (_, x) => s"${x}: ${bindings.get(x) getOrElse Pred.True}" }.mkString("(", ", ", ")")).mkString("")}) = $ret: ${bindings.get(ret) getOrElse Pred.True}; $bindings"
@@ -26,8 +27,9 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
       argss.flatten.zip(aArgss.flatten).foldLeft {
         graph
           .bind(bindings)
+          .bindDefault(defaultBindings)
           .pushEnv()
-          .subtype(aSelf, self)
+          .subtype(self, aSelf)
           .let("this", aSelf)
       } {
         case (g, ((name, p), a)) =>
@@ -38,12 +40,12 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
   }
 
   class TemplateRepo(world: World) {
-    def register(f: DefSym, binding: Map[Value, Pred], makro: Option[Macro]): Unit = {
+    def register(f: DefSym, binding: Map[Value, Pred], defaultBinding: Map[Value, UnknownPred], makro: Option[Macro]): Unit = {
       if (templates.contains(f))
         throw new RuntimeException(s"register: Conflict: $f")
       // TODO: check preds type
       val fv = world.values.functionValue(f)
-      templates = templates + (f -> Template(fv.self, fv.ret, fv.paramss, binding, makro))
+      templates = templates + (f -> Template(fv.self, fv.ret, fv.paramss, binding, defaultBinding, makro))
     }
 
     def get(f: DefSym): Template = {
@@ -102,7 +104,8 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
                 target -> pred
             }
         }
-      Template(fv.self, fv.ret, fv.paramss, bindings, makro)
+      val defaultBindings = Map.empty[Value, Pred]
+      Template(fv.self, fv.ret, fv.paramss, bindings, defaultBindings, makro)
     }
   }
 }

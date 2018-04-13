@@ -23,8 +23,11 @@ trait ForeignTypes {
     def refineSimpleAnnotations(f: DefSym): Seq[String]
     def pos(f: DefSym): Pos
 
+    def stableValueMembers(t: TypeSym): Seq[DefSym]
+
     def isAccessor(f: DefSym): Boolean
     def unwrapAccessor(f: DefSym): DefSym
+    def isPrimaryCtor(f: DefSym): Boolean
 
     def isLocal(f: DefSym): Boolean
 

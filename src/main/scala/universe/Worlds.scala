@@ -4,24 +4,41 @@ import com.todesking.prety.Lang
 import scala.reflect.runtime.{universe => ru}
 
 trait Worlds { self: ForeignTypes with Values with Templates with Props with Exprs with Envs with Preds with Macros with Debugging=>
+  class MemberEnv {
+    private[this] var entities = Map.empty[TypeSym, Map[String, PropKey]]
+
+    def propKey(tpe: TypeSym, name: String): PropKey =
+      propKeys(tpe)(name)
+
+    def propKeys(tpe: TypeSym): Map[String, PropKey] =
+      entities.get(tpe) getOrElse {
+        entities = entities + (tpe -> findPropKeys(tpe))
+        entities(tpe)
+      }
+
+    private[this] def findPropKeys(tpe: TypeSym): Map[String, PropKey] = {
+      query.stableValueMembers(tpe).map { mem =>
+        val name = query.name(mem)
+        name -> PropKey.Named(name, tpe, query.returnType(mem))
+      }.toMap
+    }
+
+    def add(tpe: TypeSym, name: String, key: PropKey): Unit = {
+      entities = entities + (tpe -> (propKeys(tpe) + (name -> key)))
+    }
+  }
   class World() {
     private[this] def nf(kind: String, key: String) =
       throw new RuntimeException(s"$kind $key not found")
 
-    private[this] var propKeys = Map.empty[String, PropKey]
     private[this] var props = Map.empty[TypeSym, Prop]
     private[this] var macros = Map.empty[String, Macro]
+    private[this] val memberEnv = new MemberEnv
 
     def registerProp(p: Prop): Unit = {
       if (props.contains(p.tpe))
         throw new RuntimeException(s"Prop conflict: $p")
       props = props + (p.tpe -> p)
-    }
-
-    def registerPropKey(k: PropKey.Named): Unit = {
-      if (propKeys.contains(k.name))
-        throw new RuntimeException(s"Name conflict: ${k.name}")
-      propKeys = propKeys + (k.name -> k)
     }
 
     def registerMacro(m: Macro): Unit = {
@@ -42,7 +59,7 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
       case "_" =>
         PropKey.Self
       case name =>
-        propKeys.get(name) getOrElse nf("Property", name)
+        memberEnv.propKey(targetType, name)
     }
 
     def findProp(tpe: TypeSym): Prop =
@@ -81,7 +98,16 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
       val makro = simples.headOption.map { s =>
         Macro.method(this, methodName, s, retT, paramss)
       }
-      templates.register(f, value2pred, makro)
+
+      val owner = query.thisType(f)
+      val defaultBindings =
+        memberEnv.propKeys(owner).get(query.name(f)).fold {
+          Map.empty[Value, UnknownPred]
+        } { key =>
+          Map(fv.ret -> UnknownPred.ref(fv.self, key))
+        }
+
+      templates.register(f, value2pred, defaultBindings, makro)
     }
 
     def registerMembers(proxy: ru.TypeTag[_]): Unit = {
