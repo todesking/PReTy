@@ -6,7 +6,6 @@ trait Graphs { self: Values with Preds with Constraints with Envs with Debugging
   case class Graph(
     constraints: Seq[Constraint],
     binding: Map[Value.Naked, Pred],
-    defaultBinding: Map[Value.Naked, UnknownPred],
     envStack: List[Env],
     currentEnv: Env) {
 
@@ -34,9 +33,6 @@ trait Graphs { self: Values with Preds with Constraints with Envs with Debugging
 
     def bind(vp: (Value, Pred)*): Graph =
       bind(uniqueMap(vp))
-
-    def bindDefault(vps: Map[Value, UnknownPred]): Graph =
-      copy(defaultBinding = defaultBinding ++ vps.map { case (k, v) => k.naked -> v })
 
     lazy val allValues = constraints.flatMap(_.values.map(_.naked)).toSet
     lazy val assignedValues = binding.keySet
@@ -81,6 +77,6 @@ trait Graphs { self: Values with Preds with Constraints with Envs with Debugging
     }
   }
   object Graph {
-    def build(env: Env): Graph = new Graph(Seq(), Map(), Map(), Nil, env)
+    def build(env: Env): Graph = new Graph(Seq(), Map(), Nil, env)
   }
 }

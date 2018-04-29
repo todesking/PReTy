@@ -99,15 +99,7 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
         Macro.method(this, methodName, s, retT, paramss)
       }
 
-      val owner = query.thisType(f)
-      val defaultBindings =
-        memberEnv.propKeys(owner).get(query.name(f)).fold {
-          Map.empty[Value, UnknownPred]
-        } { key =>
-          Map(fv.ret -> UnknownPred.ref(fv.self, key))
-        }
-
-      templates.register(f, value2pred, defaultBindings, makro)
+      templates.register(f, value2pred, makro)
     }
 
     def registerMembers(proxy: ru.TypeTag[_]): Unit = {
