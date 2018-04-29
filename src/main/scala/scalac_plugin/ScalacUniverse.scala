@@ -61,7 +61,9 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
       t.members.map(_.asTerm).filter(_.isStable).toSeq
 
     override def isAccessor(f: DefSym) = f.isAccessor
-    override def unwrapAccessor(f: DefSym) = f.accessed.asTerm
+    override def unwrapAccessor(f: DefSym) =
+      if(f.accessed == global.NoSymbol) f
+      else f.accessed.asTerm
     override def isPrimaryCtor(f: DefSym) = f.isPrimaryConstructor
 
     override def isLocal(f: DefSym) = f.isLocalToBlock

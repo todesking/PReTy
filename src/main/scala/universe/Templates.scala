@@ -49,40 +49,41 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
     }
 
     def get(f: DefSym): Template = {
-      templates.get(f).getOrElse {
-        val t = freshTemplate(f, Env.empty)
-        this.templates = templates + (f -> t)
+      val naked = unwrap(f)
+      templates.get(naked).getOrElse {
+        val t = freshTemplate(naked, Env.empty)
+        this.templates = templates + (naked -> t)
         t
       }
     }
 
     def registerLocal(f: DefSym, env: Env): Template = {
-      if (templates.contains(f))
-        throw new RuntimeException(s"registerLocal: Conflict: $f")
-      freshTemplate(f, env)
+      val naked = unwrap(f)
+      if (templates.contains(naked))
+        throw new RuntimeException(s"registerLocal: Conflict: $naked")
+      freshTemplate(naked, env)
     }
+
+    private[this] def unwrap(f: DefSym) =
+      if (query.isAccessor(f)) query.unwrapAccessor(f) else f
 
     private[this] var templates = Map.empty[DefSym, Template]
 
     private[this] def freshTemplate(f: DefSym, env: Env): Template = {
-      if (query.isAccessor(f)) {
-        get(query.unwrapAccessor(f))
-      } else {
-        val srcs = query.refineAnnotations(f)
-        val simples = query.refineSimpleAnnotations(f)
-        if (simples.nonEmpty && srcs.nonEmpty) throw new RuntimeException("@refine and @refine.simple is exclusive")
-        if (simples.size > 1) throw new RuntimeException("Multiple @refine.simple")
-        val defs =
-          if (simples.nonEmpty) Lang.parseSingle(s"_: _ == ${simples.head}")
-          else Lang.parse(srcs)
-        val makro = simples
-          .headOption
-          .map { src =>
-            val paramss = query.paramss(f).map(_.map { p => query.name(p) -> query.returnType(p) })
-            Macro.method(world, query.name(f), src, query.returnType(f), paramss)
-          }
-        buildTemplate(f, defs, env, makro)
-      }
+      val srcs = query.refineAnnotations(f)
+      val simples = query.refineSimpleAnnotations(f)
+      if (simples.nonEmpty && srcs.nonEmpty) throw new RuntimeException("@refine and @refine.simple is exclusive")
+      if (simples.size > 1) throw new RuntimeException("Multiple @refine.simple")
+      val defs =
+        if (simples.nonEmpty) Lang.parseSingle(s"_: _ == ${simples.head}")
+        else Lang.parse(srcs)
+      val makro = simples
+        .headOption
+        .map { src =>
+          val paramss = query.paramss(f).map(_.map { p => query.name(p) -> query.returnType(p) })
+          Macro.method(world, query.name(f), src, query.returnType(f), paramss)
+        }
+      buildTemplate(f, defs, env, makro)
     }
 
     private[this] def buildTemplate(f: DefSym, preds: Map[String, Lang.Def], baseEnv: Env, makro: Option[Macro]): Template = {
