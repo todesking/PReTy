@@ -13,6 +13,7 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
       val nontrivialConflicts = solveSMT(nontrivials, g.binding)
       trivialConflicts ++ nontrivialConflicts
     }
+
     def solveTrivial(cs: Seq[GroundConstraint]): (Seq[GroundConstraint], Seq[Conflict]) = {
       cs.foldLeft(
         (Seq.empty[GroundConstraint], Seq.empty[Conflict])) {

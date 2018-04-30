@@ -2,7 +2,7 @@ package com.todesking.prety.universe
 
 import com.todesking.prety.Logic
 
-trait Constraints { self: ForeignTypes with Values with Preds with Envs =>
+trait Constraints { self: ForeignTypes with Values with Preds with Envs with Exprs with Props =>
   // represents lhs <= rhs
   sealed abstract class Constraint {
     def env: Env

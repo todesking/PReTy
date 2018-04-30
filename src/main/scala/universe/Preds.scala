@@ -3,6 +3,7 @@ package com.todesking.prety.universe
 import com.todesking.prety.{ Lang }
 
 trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs with Conflicts with Worlds with Debugging =>
+  // TODO: Expr -> Expr.Boolean
   case class Pred(tpe: TypeSym, self: Expr, definedProps: Map[PropKey, Pred]) {
     // where this.tpe <:< key.targetType
     // where pred.tpe <:< key.tpe
