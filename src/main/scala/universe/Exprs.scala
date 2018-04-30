@@ -7,6 +7,7 @@ trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros w
     def tpe: TypeSym
     def substitute(mapping: Map[Value, Value]): Expr
     def messageString: String
+    def &(rhs: Expr): Expr
   }
   object Expr {
     import Lang.{ Expr => E }
@@ -54,15 +55,23 @@ trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros w
     override def substitute(mapping: Map[Value, Value]): CoreExpr
     def children: Seq[CoreExpr]
     override def messageString = toString
-    def &(rhs: CoreExpr) = rhs match {
+    override def &(rhs: Expr) = rhs match {
       case CoreExpr.And(es) =>
         CoreExpr.And(this +: es)
-      case e =>
-        CoreExpr.And(Seq(this, e))
+      case e: CoreExpr =>
+        this match {
+          case CoreExpr.And(es) =>
+            CoreExpr.And(es :+ e)
+          case e =>
+            CoreExpr.And(Seq(this, e))
+        }
     }
   }
   object CoreExpr {
     import query.{ types => T }
+
+    val True = BOOL_Lit(true)
+
     sealed trait BinaryOp extends CoreExpr {
       def lhs: CoreExpr
       def rhs: CoreExpr
@@ -81,7 +90,6 @@ trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros w
         And(es.map(_.substitute(mapping)))
       override def toString =
         es.map(e => s"($e)").mkString(" & ")
-      override def &(rhs: CoreExpr) = And(es :+ rhs)
     }
 
     case class TheValue(tpe: TypeSym) extends Leaf {

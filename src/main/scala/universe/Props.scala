@@ -57,23 +57,18 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
 
   trait Prop {
     val tpe: TypeSym
-    def buildPred(src: String, expr: Expr): PropPred
-    def solveConstraint(theValue: Value, key: PropKey, env: Env, binding: Map[Value.Naked, Pred], lhs: PropPred, rhs: PropPred): (Seq[Logic.LBool], Seq[Conflict])
+    def solveConstraint(theValue: Value, key: PropKey, env: Env, binding: Map[Value.Naked, Pred], lhs: Expr, rhs: Expr): (Seq[Logic.LBool], Seq[Conflict])
     // pred.tpe == this.tpe
-    def toLogic(pred: PropPred, theValue: Value): Logic.LBool
+    def toLogic(pred: Expr, theValue: Value): Logic.LBool
   }
 
   abstract class CoreProp extends Prop {
-    override def buildPred(src: String, expr: Expr): CorePred = expr match {
-      case e: CoreExpr => CorePred(src, e)
+    override def toLogic(pred: Expr, theValue: Value): Logic.LBool = pred match {
+      case e: CoreExpr => compileB(e, propInLogic(theValue, Seq()))
     }
 
-    override def toLogic(pred: PropPred, theValue: Value): Logic.LBool = pred match {
-      case CorePred(_, p) => compileB(p, propInLogic(theValue, Seq()))
-    }
-
-    override def solveConstraint(theValue: Value, key: PropKey, env: Env, binding: Map[Value.Naked, Pred], lhs: PropPred, rhs: PropPred) = (lhs, rhs) match {
-      case (CorePred(_, l), CorePred(_, r)) =>
+    override def solveConstraint(theValue: Value, key: PropKey, env: Env, binding: Map[Value.Naked, Pred], lhs: Expr, rhs: Expr) = (lhs, rhs) match {
+      case (l: CoreExpr, r: CoreExpr) =>
         // TODO: Move env loic generation to Solver
         // TODO: check base type constraint
         val v = propInLogic(theValue, Seq(key))
@@ -81,7 +76,7 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
         val logicL = compileB(l, v)
         val logicR = compileB(r, v)
 
-        def getCoreExpr(p: PropPred) = p match { case CorePred(_, e) => e }
+        def getCoreExpr(e: Expr) = e match { case e: CoreExpr => e }
 
         dprint("BE Start")
         dprint(logicL, logicR)

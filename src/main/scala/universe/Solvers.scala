@@ -4,7 +4,7 @@ import com.todesking.prety.Logic
 import com.todesking.prety.SMT
 import com.todesking.prety.LogicCompiler
 
-trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with Conflicts with Preds with Envs with Preds with Props with Worlds with Debugging =>
+trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with Conflicts with Preds with Envs with Preds with Props with Exprs with Worlds with Debugging =>
   class Solver(world: World) {
     private[this] val valueRepo = world.values
 
@@ -51,7 +51,7 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
       (LogicConstraint(c, Logic.and(logics).universalQuantifiedForm), conflicts)
     }
 
-    private[this] def propConstraints(c: GroundConstraint): Seq[(PropKey, PropPred, PropPred)] = {
+    private[this] def propConstraints(c: GroundConstraint): Seq[(PropKey, Expr, Expr)] = {
       val l = c.lhs.cast(c.rhs.tpe)
       val r = c.rhs
       val keys = l.definedProps.keySet ++ r.definedProps.keySet

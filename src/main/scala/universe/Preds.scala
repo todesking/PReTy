@@ -3,7 +3,7 @@ package com.todesking.prety.universe
 import com.todesking.prety.{ Lang }
 
 trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs with Conflicts with Worlds with Debugging =>
-  case class Pred(tpe: TypeSym, self: PropPred, definedProps: Map[PropKey, Pred]) {
+  case class Pred(tpe: TypeSym, self: Expr, definedProps: Map[PropKey, Pred]) {
     // where this.tpe <:< key.targetType
     // where pred.tpe <:< key.tpe
     // TODO: check requirements of key
@@ -33,7 +33,7 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
     def cast(newType: TypeSym): Pred = {
       // TODO: really accept newType <:< tpe ?????
       require(tpe <:< newType || newType <:< tpe, s"$tpe !<:> $newType")
-      val newSelf = if (newType == tpe) self else PropPred.True
+      val newSelf = if (newType == tpe) self else CoreExpr.True
       Pred(newType, newSelf, definedProps.filterKeys(_.isTarget(newType)))
     }
 
@@ -53,14 +53,12 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
     def and(ps: Seq[Pred]): Pred =
       ps.reduceOption(_ & _) getOrElse True
 
-    val True = Pred(query.types.nothing, PropPred.True, Map())
+    val True = Pred(query.types.nothing, CoreExpr.True, Map())
 
     def compile(w: World, props: Map[String, Lang.Expr], targetType: TypeSym, env: Env): Pred = {
       val self = props.get("_").map { s =>
-        w.findProp(targetType).buildPred(
-          s.toString,
-          Expr.compile(w, s, env, targetType))
-      } getOrElse PropPred.True
+        Expr.compile(w, s, env, targetType)
+      } getOrElse CoreExpr.True
       Pred(
         targetType,
         self,
@@ -69,9 +67,7 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
             val key = w.findPropKey(name, targetType)
             val pred = Pred(
               key.tpe,
-              w.findProp(key.tpe).buildPred(
-                expr.toString,
-                Expr.compile(w, expr, env, key.tpe)),
+              Expr.compile(w, expr, env, key.tpe),
               Map())
             key -> pred
         })
@@ -80,34 +76,13 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
     def exactInt(v: Int): Pred =
       Pred(
         query.types.int,
-        CorePred(s"_ == $v", CoreExpr.INT_EQ(CoreExpr.TheValue(query.types.int), CoreExpr.INT_Lit(v))),
+        CoreExpr.INT_EQ(CoreExpr.TheValue(query.types.int), CoreExpr.INT_Lit(v)),
         Map())
     def exactBoolean(v: Boolean): Pred =
       Pred(
         query.types.boolean,
-        CorePred(s"_ == $v", CoreExpr.BOOL_EQ(CoreExpr.TheValue(query.types.boolean), CoreExpr.BOOL_Lit(v))),
+        CoreExpr.BOOL_EQ(CoreExpr.TheValue(query.types.boolean), CoreExpr.BOOL_Lit(v)),
         Map())
-  }
-
-  trait PropPred {
-    def substitute(mapping: Map[Value, Value]): PropPred
-    def src: String
-    def &(rhs: PropPred): PropPred
-  }
-  object PropPred {
-    val True = CorePred("true", CoreExpr.BOOL_Lit(true))
-  }
-
-  case class CorePred(src: String, expr: CoreExpr) extends PropPred {
-    override def &(rhs: PropPred): PropPred = rhs match {
-      case PropPred.True => this
-      case CorePred(s, e) =>
-        CorePred(s"($src) & ($e)", expr & e)
-      case _ => ???
-    }
-    override def substitute(mapping: Map[Value, Value]): CorePred =
-      CorePred(src, expr.substitute(mapping))
-    override def toString = expr.toString
   }
 
   sealed abstract class UnknownPred {
