@@ -56,7 +56,7 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
       val r = c.rhs
       val keys = l.definedProps.keySet ++ r.definedProps.keySet
       keys.toSeq.map { k =>
-        (k, l.prop(k), r.prop(k))
+        (k, l.prop(k).self, r.prop(k).self)
       }
     }
 

@@ -2,12 +2,12 @@ package com.todesking.prety.universe
 
 import com.todesking.prety.{ Lang }
 
-trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs with Conflicts with Worlds =>
-  case class Pred(tpe: TypeSym, self: PropPred, definedProps: Map[PropKey, PropPred]) {
+trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs with Conflicts with Worlds with Debugging =>
+  case class Pred(tpe: TypeSym, self: PropPred, definedProps: Map[PropKey, Pred]) {
     // where this.tpe <:< key.targetType
     // where pred.tpe <:< key.tpe
     // TODO: check requirements of key
-    def prop(key: PropKey): PropPred = definedProps.get(key) getOrElse PropPred.True
+    def prop(key: PropKey): Pred = definedProps.get(key) getOrElse Pred.True
 
     // where this.tpe <:< tpe
     // where _.tpe <:< tpe
@@ -37,11 +37,16 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
       Pred(newType, newSelf, definedProps.filterKeys(_.isTarget(newType)))
     }
 
-    def messageString =
-      definedProps.map { case (k, v) => s"${k.name}: ${v.src}" }.mkString("{", ", ", "}")
+    def messageString: String =
+      s"($self)${
+        definedProps.map { case (k, v) => s"${k.name}: ${v.src}" }.mkString("{", ", ", "}")
+      }"
+    def src: String = messageString
 
     override def toString =
-      definedProps.map { case (k, v) => s"${k.name}: $v" }.mkString("{", ", ", "}")
+      s"($self)${
+        definedProps.map { case (k, v) => s"${k.name}: $v" }.mkString("{", ", ", "}")
+      }"
   }
 
   object Pred {
@@ -62,9 +67,12 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
         props.filterNot(_._1 == "_").map {
           case (name, expr) =>
             val key = w.findPropKey(name, targetType)
-            val pred = w.findProp(key.tpe).buildPred(
-              expr.toString,
-              Expr.compile(w, expr, env, key.tpe))
+            val pred = Pred(
+              key.tpe,
+              w.findProp(key.tpe).buildPred(
+                expr.toString,
+                Expr.compile(w, expr, env, key.tpe)),
+              Map())
             key -> pred
         })
     }
@@ -117,11 +125,7 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
       override def revealOpt(binding: Map[Value.Naked, Pred]) =
         self.revealOpt(binding)
           .map { pred =>
-            Pred(
-              key.tpe,
-              pred.prop(key),
-              Map() // TODO: really???
-            )
+            pred.prop(key)
           }
       override def toValue = self.toValue
       override def toString = s"$self.$key"

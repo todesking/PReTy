@@ -96,11 +96,11 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
                 case (value, path) =>
                   dprint(al, askip, vl, value, path, binding(value.naked))
                   // TODO: use correspond Prop to build logic
-                  val prop = path match {
-                    case Seq() => binding(value.naked).self
+                  val pred = path match {
+                    case Seq() => binding(value.naked)
                     case Seq(k) => binding(value.naked).prop(k)
                   }
-                  val l = compileB(getCoreExpr(prop), vl)
+                  val l = compileB(getCoreExpr(pred.self), vl)
                   val al2 = al & l & buildEnvLogic(l.vars, askip)
                   (al2, askip ++ al2.vars)
               }
@@ -123,9 +123,9 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
               pred.definedProps.map {
                 case (prop, ppred) =>
                   if (not) {
-                    this.toLogic(ppred, value) & !propInLogicB(value, Seq(prop))
+                    this.toLogic(ppred.self, value) & !propInLogicB(value, Seq(prop))
                   } else {
-                    this.toLogic(ppred, value) & propInLogicB(value, Seq(prop))
+                    this.toLogic(ppred.self, value) & propInLogicB(value, Seq(prop))
                   }
               }
           }.reduceOption(_ & _) getOrElse Logic.True
