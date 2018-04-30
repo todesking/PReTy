@@ -3,26 +3,8 @@ package com.todesking.prety.universe
 import com.todesking.prety.Logic
 
 trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflicts with Envs with Debugging =>
-  sealed abstract class PropKey {
-    def isTarget(t: TypeSym): Boolean
-    def typeFor(t: TypeSym): TypeSym
-    def name: String
-  }
-  object PropKey {
-    case class Named(name: String, targetType: TypeSym, tpe: TypeSym) extends PropKey {
-      require(name != "_")
-
-      override def toString = s"[property $name: $targetType => $tpe]"
-      override def isTarget(t: TypeSym) = t <:< targetType
-      override def typeFor(t: TypeSym) = tpe
-    }
-    case object Self extends PropKey {
-      override def toString = s"[property self]"
-      override def isTarget(t: TypeSym) = true
-      // TODO: clean literal types
-      override def typeFor(t: TypeSym) = t
-      override def name = "_"
-    }
+  case class PropKey(name: String, targetType: TypeSym, tpe: TypeSym) {
+    def isTarget(t: TypeSym) = tpe <:< targetType
   }
 
   private[this] var nextVarId = 0
@@ -37,23 +19,21 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
     v
   }
 
-  private[this] var prop2l = Map[(Value.Naked, PropKey), Logic]()
-  def propInLogic(value: Value, prop: PropKey): Logic =
-    prop2l.get((value.naked, prop)) getOrElse {
+  private[this] var prop2l = Map[(Value.Naked, Seq[PropKey]), Logic]()
+  def propInLogic(value: Value, path: Seq[PropKey]): Logic =
+    // TODO: [BUG] support path
+    prop2l.get((value.naked, path)) getOrElse {
       val naked = value.naked
-      val v = naked match {
-        case Value.IntLiteral(i) if prop == PropKey.Self => // TODO
-          Logic.IValue(i)
-        case _ =>
-          val t = prop.typeFor(naked.tpe)
-          if (t <:< query.types.int) freshIVar(naked.toString)
-          else if (t <:< query.types.boolean) freshBVar(naked.toString)
-          else throw new RuntimeException(s"Theres no type $t in Logic")
+      val v = {
+        val t = naked.tpe
+        if (t <:< query.types.int) freshIVar(naked.toString)
+        else if (t <:< query.types.boolean) freshBVar(naked.toString)
+        else throw new RuntimeException(s"Theres no type $t in Logic")
       }
-      prop2l = prop2l + ((naked, prop) -> v)
+      prop2l = prop2l + ((naked, path) -> v)
       v
     }
-  def propFromLogic(l: Logic): Option[(Value, PropKey)] = l match {
+  def propFromLogic(l: Logic): Option[(Value, Seq[PropKey])] = l match {
     case lvar: Logic.Var =>
       Some(prop2l.find { case (k, v) => v == lvar }.get._1)
     case Logic.IValue(_) | Logic.BValue(_) =>
@@ -62,14 +42,14 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
       throw new RuntimeException(s"$other")
   }
 
-  def propInLogicI(value: Value, prop: PropKey): Logic.LInt =
-    propInLogic(value, prop) match {
+  def propInLogicI(value: Value, path: Seq[PropKey]): Logic.LInt =
+    propInLogic(value, path) match {
       case v: Logic.LInt => v
       case other =>
         throw new RuntimeException(s"$other")
     }
-  def propInLogicB(value: Value, prop: PropKey): Logic.LBool =
-    propInLogic(value, prop) match {
+  def propInLogicB(value: Value, path: Seq[PropKey]): Logic.LBool =
+    propInLogic(value, path) match {
       case v: Logic.LBool => v
       case other =>
         throw new RuntimeException(s"$other")
@@ -89,14 +69,14 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
     }
 
     override def toLogic(pred: PropPred, theValue: Value): Logic.LBool = pred match {
-      case CorePred(_, p) => compileB(p, propInLogic(theValue, PropKey.Self))
+      case CorePred(_, p) => compileB(p, propInLogic(theValue, Seq()))
     }
 
     override def solveConstraint(theValue: Value, key: PropKey, env: Env, binding: Map[Value.Naked, Pred], lhs: PropPred, rhs: PropPred) = (lhs, rhs) match {
       case (CorePred(_, l), CorePred(_, r)) =>
         // TODO: Move env loic generation to Solver
         // TODO: check base type constraint
-        val v = propInLogic(theValue, key)
+        val v = propInLogic(theValue, Seq(key))
 
         val logicL = compileB(l, v)
         val logicR = compileB(r, v)
@@ -113,10 +93,14 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
                 // vl represents literal
                 (al, askip)
               } {
-                case (value, pkey) =>
-                  dprint(al, askip, vl, value, pkey, binding(value.naked))
+                case (value, path) =>
+                  dprint(al, askip, vl, value, path, binding(value.naked))
                   // TODO: use correspond Prop to build logic
-                  val l = compileB(getCoreExpr(binding(value.naked).prop(pkey)), vl)
+                  val prop = path match {
+                    case Seq() => binding(value.naked).self
+                    case Seq(k) => binding(value.naked).prop(k)
+                  }
+                  val l = compileB(getCoreExpr(prop), vl)
                   val al2 = al & l & buildEnvLogic(l.vars, askip)
                   (al2, askip ++ al2.vars)
               }
@@ -133,14 +117,15 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
         }
 
         def condsToLogic(l: Map[Value.Naked, Pred], not: Boolean) =
+          // TODO: [BUG]
           l.flatMap {
             case (value, pred) =>
               pred.definedProps.map {
                 case (prop, ppred) =>
                   if (not) {
-                    this.toLogic(ppred, value) & !propInLogicB(value, prop)
+                    this.toLogic(ppred, value) & !propInLogicB(value, Seq(prop))
                   } else {
-                    this.toLogic(ppred, value) & propInLogicB(value, prop)
+                    this.toLogic(ppred, value) & propInLogicB(value, Seq(prop))
                   }
               }
           }.reduceOption(_ & _) getOrElse Logic.True
@@ -187,7 +172,7 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
             throw new RuntimeException(s"$other")
         }
       case E.ValueRef(v) =>
-        propInLogicI(v, PropKey.Self)
+        propInLogicI(v, Seq())
       case E.INT_Lit(x) =>
         Logic.IValue(x)
       case E.INT_DIV(l, r) =>

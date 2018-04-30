@@ -44,7 +44,7 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
       val xs =
         propConstraints(c).map {
           case (key, l, r) =>
-            world.findProp(key.typeFor(c.focus.tpe)).solveConstraint(c.focus, key, c.env, binding, l, r)
+            world.findProp(key.tpe).solveConstraint(c.focus, key, c.env, binding, l, r)
         }
       val logics = xs.flatMap(_._1)
       val conflicts = xs.flatMap(_._2)

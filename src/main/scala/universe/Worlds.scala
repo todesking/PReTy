@@ -19,7 +19,7 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
     private[this] def findPropKeys(tpe: TypeSym): Map[String, PropKey] = {
       query.stableValueMembers(tpe).map { mem =>
         val name = query.name(mem)
-        name -> PropKey.Named(name, tpe, query.returnType(mem))
+        name -> PropKey(name, tpe, query.returnType(mem))
       }.toMap
     }
 
@@ -55,12 +55,8 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
 
     def findMacro(name: String): Macro = macros.get(name) getOrElse nf("Macro", name)
 
-    def findPropKey(name: String, targetType: TypeSym): PropKey = name match {
-      case "_" =>
-        PropKey.Self
-      case name =>
+    def findPropKey(name: String, targetType: TypeSym): PropKey =
         memberEnv.propKey(targetType, name)
-    }
 
     def findProp(tpe: TypeSym): Prop =
       props.get(tpe) getOrElse nf("Prop", tpe.toString)

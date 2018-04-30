@@ -3,95 +3,82 @@ package com.todesking.prety.universe
 import com.todesking.prety.{ Lang }
 
 trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs with Conflicts with Worlds =>
-  abstract class Pred {
-    def tpe: TypeSym
-
+  case class Pred(tpe: TypeSym, self: PropPred, definedProps: Map[PropKey, PropPred]) {
     // where this.tpe <:< key.targetType
     // where pred.tpe <:< key.tpe
-    def prop(key: PropKey): PropPred
-
-    // where pred.tpe <:< key.tpe
-    def definedProps: Map[PropKey, PropPred]
+    // TODO: check requirements of key
+    def prop(key: PropKey): PropPred = definedProps.get(key) getOrElse PropPred.True
 
     // where this.tpe <:< tpe
     // where _.tpe <:< tpe
     // def as(tpe: TypeSym): Pred
-    def substitute(mapping: Map[Value, Value]): Pred
+    def substitute(mapping: Map[Value, Value]): Pred =
+      Pred(tpe, self.substitute(mapping), definedProps.mapValues(_.substitute(mapping)))
 
-    def &(rhs: Pred): Pred
+    def &(rhs: Pred): Pred = {
+      require(tpe == rhs.tpe || this == Pred.True || rhs == Pred.True) // TODO: make upper bound type
+      if (this == Pred.True) rhs
+      else if (rhs == Pred.True) this
+      else {
+        Pred(
+          tpe,
+          self & rhs.self,
+          (definedProps.toSeq ++ rhs.definedProps.toSeq)
+            .groupBy(_._1)
+            .map { case (k, kvs) => k -> kvs.map(_._2).reduce(_ & _) }
+            .toMap)
+      }
+    }
 
     def cast(newType: TypeSym): Pred = {
       // TODO: really accept newType <:< tpe ?????
       require(tpe <:< newType || newType <:< tpe, s"$tpe !<:> $newType")
-      Pred(newType, definedProps.filterKeys(_.isTarget(newType)))
+      val newSelf = if (newType == tpe) self else PropPred.True
+      Pred(newType, newSelf, definedProps.filterKeys(_.isTarget(newType)))
     }
 
-    def messageString: String
+    def messageString =
+      definedProps.map { case (k, v) => s"${k.name}: ${v.src}" }.mkString("{", ", ", "}")
+
+    override def toString =
+      definedProps.map { case (k, v) => s"${k.name}: $v" }.mkString("{", ", ", "}")
   }
 
   object Pred {
     def and(ps: Seq[Pred]): Pred =
       ps.reduceOption(_ & _) getOrElse True
 
-    case class Custom(tpe: TypeSym, ppreds: Map[PropKey, PropPred]) extends Pred {
-      require(ppreds.keys.forall(_.isTarget(tpe)))
+    val True = Pred(query.types.nothing, PropPred.True, Map())
 
-      override def prop(key: PropKey) = ppreds.get(key) getOrElse PropPred.True
-      override def definedProps = ppreds
-      override def substitute(mapping: Map[Value, Value]) = apply(tpe, ppreds.mapValues(_.substitute(mapping)))
-      override def &(rhs: Pred) = rhs match {
-        case True => this
-        case pred =>
-          require(pred.tpe <:< this.tpe)
-          val props = definedProps.keySet ++ pred.cast(tpe).definedProps.keySet
-          Pred(
-            tpe,
-            props.toSeq.map { key =>
-              key -> (prop(key) & pred.prop(key))
-            }.toMap)
-      }
-      override def toString =
-        definedProps.map { case (k, v) => s"${k.name}: $v" }.mkString("{", ", ", "}")
-      override def messageString =
-        definedProps.map { case (k, v) => s"${k.name}: ${v.src}" }.mkString("{", ", ", "}")
-    }
-
-    def apply(targetType: TypeSym, ppreds: Map[PropKey, PropPred]): Pred =
-      Custom(targetType, ppreds)
-
-    case object True extends Pred {
-      override def tpe = query.types.any
-      override def prop(key: PropKey) = PropPred.True
-      override def definedProps = Map()
-      override def substitute(mapping: Map[Value, Value]) = this
-      override def &(rhs: Pred) = rhs
-      override def toString = "{}"
-      override def messageString = "{}"
-    }
-
-    def compile(w: World, props: Map[String, Lang.Expr], targetType: TypeSym, env: Env): Pred =
+    def compile(w: World, props: Map[String, Lang.Expr], targetType: TypeSym, env: Env): Pred = {
+      val self = props.get("_").map { s =>
+        w.findProp(targetType).buildPred(
+          s.toString,
+          Expr.compile(w, s, env, targetType))
+      } getOrElse PropPred.True
       Pred(
         targetType,
-        props.map {
+        self,
+        props.filterNot(_._1 == "_").map {
           case (name, expr) =>
             val key = w.findPropKey(name, targetType)
-            val tpe = key.typeFor(targetType)
-            val pred = w.findProp(tpe).buildPred(
+            val pred = w.findProp(key.tpe).buildPred(
               expr.toString,
-              Expr.compile(w, expr, env, tpe))
+              Expr.compile(w, expr, env, key.tpe))
             key -> pred
         })
+    }
 
     def exactInt(v: Int): Pred =
       Pred(
         query.types.int,
-        Map(
-          PropKey.Self -> CorePred(s"_ == $v", CoreExpr.INT_EQ(CoreExpr.TheValue(query.types.int), CoreExpr.INT_Lit(v)))))
+        CorePred(s"_ == $v", CoreExpr.INT_EQ(CoreExpr.TheValue(query.types.int), CoreExpr.INT_Lit(v))),
+        Map())
     def exactBoolean(v: Boolean): Pred =
       Pred(
         query.types.boolean,
-        Map(
-          PropKey.Self -> CorePred(s"_ == $v", CoreExpr.BOOL_EQ(CoreExpr.TheValue(query.types.boolean), CoreExpr.BOOL_Lit(v)))))
+        CorePred(s"_ == $v", CoreExpr.BOOL_EQ(CoreExpr.TheValue(query.types.boolean), CoreExpr.BOOL_Lit(v))),
+        Map())
   }
 
   trait PropPred {
@@ -131,8 +118,10 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
         self.revealOpt(binding)
           .map { pred =>
             Pred(
-              key.typeFor(pred.tpe),
-              Map(PropKey.Self -> pred.prop(key)))
+              key.tpe,
+              pred.prop(key),
+              Map() // TODO: really???
+            )
           }
       override def toValue = self.toValue
       override def toString = s"$self.$key"
