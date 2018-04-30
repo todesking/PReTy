@@ -209,12 +209,4 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
     override val tpe = query.types.boolean
   }
 
-  case class PropValue(tpe: TypeSym, value: Pred, props: Map[PropKey.Named, PropValue]) {
-    require(tpe <:< value.tpe)
-  }
-  object PropValue {
-    val True = PropValue(query.types.nothing, Pred.True, Map())
-    def apply(tpe: TypeSym, p: Pred): PropValue = PropValue(tpe, p, Map())
-  }
-
 }
