@@ -9,27 +9,27 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
     private[this] val valueRepo = world.values
 
     def solve(g: Graph): Seq[Conflict] = {
-      val (nontrivials, trivialConflicts) = solveTrivial(g.groundConstraints)
-      val nontrivialConflicts = solveSMT(nontrivials, g.binding)
+      val (cs, trivialConflicts) = solveTrivial(g.groundConstraints.map(simplify))
+      val nontrivialConflicts = solveSMT(cs, g.binding)
       trivialConflicts ++ nontrivialConflicts
     }
 
-    def solveTrivial(cs: Seq[GroundConstraint]): (Seq[GroundConstraint], Seq[Conflict]) = {
-      cs.foldLeft(
-        (Seq.empty[GroundConstraint], Seq.empty[Conflict])) {
-          case ((ct, cf), c) =>
-            (simplify(c.lhs), simplify(c.rhs)) match {
-              case (l, r) if l == r =>
-                (ct, cf)
-              case (_, Pred.True) =>
-                (ct, cf)
-              case _ =>
-                (ct :+ c, cf)
-            }
-        }
-    }
+    private[this] def simplify(g: GroundConstraint): GroundConstraint = g
 
-    def simplify(p: Pred): Pred = p
+    private[this] def solveTrivial(constraints: Seq[GroundConstraint]): (Seq[GroundConstraint], Seq[Conflict]) = {
+      val (cs, cfs) =
+        splitMap(constraints) { c =>
+          if (c.lhs == c.rhs) Some(None)
+          else if (c.rhs == Pred.True) Some(None)
+          else None
+        }
+      (cs, cfs.flatten)
+    }
+    private[this] def splitMap[A, B](xs: Seq[A])(f: A => Option[B]): (Seq[A], Seq[B]) =
+      xs.foldLeft((Seq.empty[A], Seq.empty[B])) {
+        case ((aa, ab), x) =>
+          f(x).fold((aa :+ x, ab)) { b => (aa, ab :+ b) }
+      }
 
     def solveSMT(constraints: Seq[GroundConstraint], binding: Map[Value.Naked, Pred]): Seq[Conflict] = {
       val (ls, cs) =
