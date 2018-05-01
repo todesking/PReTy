@@ -44,21 +44,27 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
     private[this] def compileConstraint(c: GroundConstraint, binding: Map[Value.Naked, Pred]): (LogicConstraint, Seq[Conflict]) = {
       val xs =
         propConstraints(c).map {
-          case (key, l, r) =>
-            world.findProp(key.tpe).solveConstraint(c.focus, key, c.env, binding, l, r)
+          case (path, l, r) =>
+            world
+              .findProp(path.lastOption.map(_.tpe) getOrElse c.lhs.tpe)
+              .solveConstraint(c.focus, path, c.env, binding, l, r)
         }
+      ppp("compileConstraint", c, "=>", xs)
       val logics = xs.flatMap(_._1)
       val conflicts = xs.flatMap(_._2)
       (LogicConstraint(c, Logic.and(logics).universalQuantifiedForm), conflicts)
     }
 
-    private[this] def propConstraints(c: GroundConstraint): Seq[(PropKey, Expr, Expr)] = {
+    private[this] def propConstraints(c: GroundConstraint): Seq[(Seq[PropKey], Expr, Expr)] = {
+      def gather(l: Pred, r: Pred, path: Seq[PropKey]): Seq[(Seq[PropKey], Expr, Expr)] = {
+        val keys = l.definedProps.keySet ++ r.definedProps.keySet
+        (path, l.self, r.self) +: keys.toSeq.flatMap { k =>
+          gather(l.prop(k), r.prop(k), path :+ k)
+        }
+      }
       val l = c.lhs.cast(c.rhs.tpe)
       val r = c.rhs
-      val keys = l.definedProps.keySet ++ r.definedProps.keySet
-      keys.toSeq.map { k =>
-        (k, l.prop(k).self, r.prop(k).self)
-      }
+      gather(l, r, Seq())
     }
 
     private[this] def runSMT(constraints: Seq[LogicConstraint]): Seq[Conflict] = {

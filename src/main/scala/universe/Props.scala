@@ -57,7 +57,7 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
 
   trait Prop {
     val tpe: TypeSym
-    def solveConstraint(theValue: Value, key: PropKey, env: Env, binding: Map[Value.Naked, Pred], lhs: Expr, rhs: Expr): (Seq[Logic.LBool], Seq[Conflict])
+    def solveConstraint(theValue: Value, path: Seq[PropKey], env: Env, binding: Map[Value.Naked, Pred], lhs: Expr, rhs: Expr): (Seq[Logic.LBool], Seq[Conflict])
     // pred.tpe == this.tpe
     def toLogic(pred: Expr, theValue: Value): Logic.LBool
   }
@@ -67,11 +67,11 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
       case e: CoreExpr => compileB(e, propInLogic(theValue, Seq()))
     }
 
-    override def solveConstraint(theValue: Value, key: PropKey, env: Env, binding: Map[Value.Naked, Pred], lhs: Expr, rhs: Expr) = (lhs, rhs) match {
+    override def solveConstraint(theValue: Value, path: Seq[PropKey], env: Env, binding: Map[Value.Naked, Pred], lhs: Expr, rhs: Expr) = (lhs, rhs) match {
       case (l: CoreExpr, r: CoreExpr) =>
         // TODO: Move env loic generation to Solver
         // TODO: check base type constraint
-        val v = propInLogic(theValue, Seq(key))
+        val v = propInLogic(theValue, path)
 
         val logicL = compileB(l, v)
         val logicR = compileB(r, v)
@@ -112,20 +112,20 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
         }
 
         def condsToLogic(l: Map[Value.Naked, Pred], not: Boolean) =
-          // TODO: [BUG]
-          l.flatMap {
+          // TODO: [BUG] check child props
+          l.map {
             case (value, pred) =>
-              pred.definedProps.map {
-                case (prop, ppred) =>
-                  if (not) {
-                    this.toLogic(ppred.self, value) & !propInLogicB(value, Seq(prop))
-                  } else {
-                    this.toLogic(ppred.self, value) & propInLogicB(value, Seq(prop))
-                  }
+              if (not) {
+                this.toLogic(pred.self, value) & !propInLogicB(value, Seq())
+              } else {
+                this.toLogic(pred.self, value) & propInLogicB(value, Seq())
               }
           }.reduceOption(_ & _) getOrElse Logic.True
         val condLogic = condsToLogic(binding.filterKeys(env.conds.map(_.naked)), not = false)
         val uncondLogic = condsToLogic(binding.filterKeys(env.unconds.map(_.naked)), not = true)
+
+        ppp("conds", binding.filterKeys(env.conds.map(_.naked)))
+        ppp("condLogic", theValue, condLogic)
 
         (Seq((envLogic & condLogic & uncondLogic & logicL) --> logicR), Seq())
 
