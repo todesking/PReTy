@@ -89,7 +89,7 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
         base ++ defs.map {
               case (name, d) =>
                 val v = name2value(name)
-                v -> Pred.compile(this, d.props, name2type(name), env)
+                v -> Pred.compile(this, d, name2type(name), env)
             }
       val makro = simples.headOption.map { s =>
         Macro.method(this, methodName, s, retT, paramss)

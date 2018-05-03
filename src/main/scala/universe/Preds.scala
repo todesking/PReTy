@@ -56,21 +56,15 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
 
     val True = Pred(query.types.nothing, CoreExpr.True, Map())
 
-    def compile(w: World, props: Map[String, Lang.Expr], targetType: TypeSym, env: Env): Pred = {
-      val self = props.get("_").map { s =>
-        Expr.compile(w, s, env, targetType)
-      } getOrElse CoreExpr.True
+    def compile(w: World, ast: Lang.Pred, targetType: TypeSym, env: Env): Pred = {
+      val self = Expr.compile(w, ast.self, env, targetType)
       Pred(
         targetType,
         self,
-        props.filterNot(_._1 == "_").map {
-          case (name, expr) =>
+        ast.props.map {
+          case (name, ppred) =>
             val key = w.findPropKey(name, targetType)
-            val pred = Pred(
-              key.tpe,
-              Expr.compile(w, expr, env, key.tpe),
-              Map())
-            key -> pred
+            key -> compile(w, ppred, key.tpe, env)
         })
     }
 

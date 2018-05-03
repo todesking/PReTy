@@ -84,7 +84,7 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
       buildTemplate(f, defs, env, makro)
     }
 
-    private[this] def buildTemplate(f: DefSym, preds: Map[String, Lang.Def], baseEnv: Env, makro: Option[Macro]): Template = {
+    private[this] def buildTemplate(f: DefSym, preds: Map[String, Lang.Pred], baseEnv: Env, makro: Option[Macro]): Template = {
       // TODO: Check unknown pred target
       val fv = world.values.functionValue(f)
 
@@ -99,7 +99,7 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
             .map {
               case (k, v) =>
                 val target = if (k == "_") fv.ret else env.findValue(k)
-                val pred = Pred.compile(world, v.props, target.tpe, env)
+                val pred = Pred.compile(world, v, target.tpe, env)
                 target -> pred
             }
         }

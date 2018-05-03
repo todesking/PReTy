@@ -3,9 +3,9 @@ package com.todesking.prety
 import com.todesking.prety.util.uniqueMap
 
 object Lang {
-  def parse(s: Seq[String]): Map[String, Def] =
+  def parse(s: Seq[String]): Map[String, Pred] =
     uniqueMap(s.map(parseSingle).flatten)
-  def parseSingle(s: String): Map[String, Def] =
+  def parseSingle(s: String): Map[String, Pred] =
     Parser.parseAll(Parser.all, s) match {
       case Parser.NoSuccess(msg, _) =>
         throw new RuntimeException(s"Parse error($msg): $s")
@@ -21,13 +21,30 @@ object Lang {
     }
 
   object Parser extends scala.util.parsing.combinator.RegexParsers {
-    def all: Parser[Map[String, Def]] = repsep(pred, ",").map(uniqueMap)
+    private[this] def surround[A](l: String, content: => Parser[A], r: String): Parser[A] =
+      (l ~> content) <~ r
 
-    def pred = ((name <~ ":") ~ props) ^^ { case n ~ ps => (n, Def(uniqueMap(ps))) }
-    def props = props_full | props_one
-    def props_full = ("{" ~> repsep(prop, ",")) <~ "}"
-    def props_one = expr ^^ { e => Seq("_" -> e) }
-    def prop = name ~ (":" ~> expr) ^^ { case n ~ p => (n, p) }
+    private[this] def sep[L, R](l: Parser[L], s: String, r: Parser[R]): Parser[L ~ R] =
+      (l <~ s) ~ r
+
+    private[this] def list[A](p: Parser[A]): Parser[Seq[A]] =
+      repsep(p, ",")
+
+    private[this] def kv[K, V](k: Parser[K], v: => Parser[V]): Parser[(K, V)] =
+      sep(k, ":", v) ^^ { case a ~ b => (a, b) }
+
+    private[this] def dict[K, V](k: Parser[K], v: => Parser[V]): Parser[Map[K, V]] =
+      surround("{", list(kv(k, v)), "}") ^^ uniqueMap
+
+    def all: Parser[Map[String, Pred]] = list(kv(name, pred)) ^^ uniqueMap
+
+    def pred: Parser[Pred] = pred_full | pred_one
+    def pred_full = dict(name, pred) ^^ { ps =>
+      // TODO: handle {_: {v1: ...}, v2: ...} pattern(should error?)
+      Pred(ps.get("_").map(_.self) getOrElse Expr.LitBoolean(true), ps.filterKeys(_ != "_"))
+    }
+    def pred_one = expr ^^ { e => Pred(e, Map()) }
+
     def expr: Parser[Expr] = opapp | expr1
     def expr1 = group | atom
     def opapp: Parser[Expr] = expr1 ~ op ~ expr1 ^^ {
@@ -56,7 +73,7 @@ object Lang {
     }
   }
 
-  case class Def(props: Map[String, Expr])
+  case class Pred(self: Expr, props: Map[String, Pred])
 
   sealed abstract class Expr(override val toString: String) {
     def names: Set[String]
