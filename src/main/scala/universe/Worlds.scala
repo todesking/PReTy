@@ -59,7 +59,7 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
         memberEnv.propKey(targetType, name)
 
     def findProp(tpe: TypeSym): Prop =
-      props.get(tpe) getOrElse nf("Prop", tpe.toString)
+      props.values.filter(tpe <:< _.tpe).toSeq.sortWith { (a, b) => a.tpe <:< b.tpe }.head // TODO: [BUG] types are partial order. need tsort
 
     val templates = new TemplateRepo(this)
     val values = new ValueRepo
@@ -154,6 +154,7 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
       val w = new World
       w.registerProp(new BooleanProp)
       w.registerProp(new IntProp)
+      w.registerProp(new AnyRefProp)
 
       w.registerMacro(CoreLib)
 

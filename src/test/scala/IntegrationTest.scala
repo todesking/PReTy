@@ -69,7 +69,7 @@ class IntegrationTest extends FunSpec {
     assert(result.infos == Seq())
     assert(result.warnings == Seq())
 
-    val errors = uniqueMap(result.errors.map { e => LocalPos(e.pos) -> e.message })
+    val errors = result.errors.map { e => LocalPos(e.pos) -> e.message }.groupBy(_._1).mapValues(_.map(_._2).mkString(", "))
 
     val happendErrors = errors.filter {
       case (k, v) =>

@@ -34,7 +34,7 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
             val t = naked.tpe
             if (t <:< query.types.int) freshIVar(naked.toString)
             else if (t <:< query.types.boolean) freshBVar(naked.toString)
-            else throw new RuntimeException(s"Theres no type $t in Logic")
+            else freshIVar(naked.toString) // TODO: use identity type if supported
         }
       prop2l = prop2l + ((naked, path) -> logic)
       logic
@@ -190,6 +190,9 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
 
   class BooleanProp extends CoreProp {
     override val tpe = query.types.boolean
+  }
+  class AnyRefProp extends CoreProp {
+    override val tpe = query.types.anyRef
   }
 
 }

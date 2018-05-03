@@ -39,6 +39,7 @@ trait ForeignTypes {
     def samePos(l: Pos, r: Pos): Boolean
 
     def <:<(lhs: TypeSym, rhs: TypeSym): Boolean
+    def baseTypes(t: TypeSym): Seq[TypeSym]
 
     def lookupMembers(self: TypeSym, name: String, ret: TypeSym, paramss: Seq[Seq[TypeSym]]): Seq[DefSym]
     def lookupMember(self: TypeSym, name: String, ret: TypeSym, paramss: Seq[Seq[TypeSym]]): DefSym = {
@@ -54,6 +55,7 @@ trait ForeignTypes {
     trait TypesAPI {
       val nothing: TypeSym
       val any: TypeSym
+      val anyRef: TypeSym
       val int: TypeSym
       val boolean: TypeSym
       def fromName(fqn: String): TypeSym

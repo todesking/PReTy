@@ -15,6 +15,7 @@ trait Constraints { self: ForeignTypes with Values with Preds with Envs with Exp
 
     // lhs <:< rhs under type tpe
     // TODO: It smells...
+    // TODO: Use rhs.tpe
     def tpe: TypeSym = focus.tpe
 
     def ground(binding: Map[Value.Naked, Pred]): GroundConstraint =

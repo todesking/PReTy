@@ -76,6 +76,7 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
     override def samePos(l: Pos, r: Pos) = l == r
 
     override def <:<(lhs: TypeSym, rhs: TypeSym) = lhs <:< rhs
+    override def baseTypes(tpe: TypeSym) = tpe.baseClasses.map(_.asType.tpe)
 
     override def lookupMembers(self: TypeSym, name: String, ret: TypeSym, paramss: Seq[Seq[TypeSym]]): Seq[DefSym] = {
       def matcher(x: global.Symbol): Boolean = {
@@ -93,10 +94,13 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
 
     override val types = new TypesAPI {
       private[this] def get(name: String) = global.rootMirror.getRequiredClass(name).tpe
-      override val nothing = get("scala.Nothing")
-      override val any = get("scala.Any")
-      override val int = get("scala.Int")
-      override val boolean = get("scala.Boolean")
+
+      override val any = global.TypeTag.Any.tpe
+      override val anyRef = global.TypeTag.AnyRef.tpe
+      override val int = global.TypeTag.Int.tpe
+      override val boolean = global.TypeTag.Boolean.tpe
+      override val nothing = global.TypeTag.Nothing.tpe
+
       override def fromName(fqn: String) =
         get(fqn)
     }
