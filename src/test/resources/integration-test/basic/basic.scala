@@ -40,18 +40,18 @@ object Basic {
     posi(getPosiValue0)
 
     posi(0)
-    //   ^{_: _ == 0} *<= {_: _ > 0}
+    //   ^
     posi(n)
-    //   ^{_: _ == -1} *<= {_: _ > 0}
+    //   ^
     posi(negaValue)
-    //   ^{_: _ < 0} *<= {_: _ > 0}
+    //   ^
     posi(negaValue0)
-    //   ^{_: _ < 0} *<= {_: _ > 0}
+    //   ^
     posi(getNegaValue)
-    //   ^{_: _ < 0} *<= {_: _ > 0}
+    //   ^
     posi(getNegaValue())
-    //               ^{_: _ < 0} *<= {_: _ > 0}
+    //               ^
     posi(getNegaValue0)
-    //   ^{_: _ < 0} *<= {_: _ > 0}
+    //   ^
   }
 }
