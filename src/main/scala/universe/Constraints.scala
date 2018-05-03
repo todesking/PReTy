@@ -13,7 +13,9 @@ trait Constraints { self: ForeignTypes with Values with Preds with Envs with Exp
       lhs.toValue.toSet ++ rhs.toValue
     def focus: Value
 
-    // TODO: tpe
+    // lhs <:< rhs under type tpe
+    // TODO: It smells...
+    def tpe: TypeSym = focus.tpe
 
     def ground(binding: Map[Value.Naked, Pred]): GroundConstraint =
       GroundConstraint(this, binding, lhs.toValue, rhs.toValue, lhs.reveal(binding), rhs.reveal(binding))
@@ -41,6 +43,7 @@ trait Constraints { self: ForeignTypes with Values with Preds with Envs with Exp
     def focus: Value = constraint.focus
     def env = constraint.env
     def messageString = s"${lhs.messageString} ${constraint.arrowString} ${rhs.messageString}"
+    def tpe = constraint.tpe
   }
 
   case class LogicConstraint(constraint: GroundConstraint, logic: Logic) {

@@ -45,11 +45,11 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
       val xs =
         propConstraints(c).map {
           case (path, l, r) =>
+            dp(s"compileConstraint: $path, $l, $r")
             world
-              .findProp(path.lastOption.map(_.tpe) getOrElse c.lhs.tpe)
+              .findProp(path.lastOption.map(_.tpe) getOrElse c.tpe)
               .solveConstraint(c.focus, path, c.env, binding, l, r)
         }
-      ppp("compileConstraint", c, "=>", xs)
       val logics = xs.flatMap(_._1)
       val conflicts = xs.flatMap(_._2)
       (LogicConstraint(c, Logic.and(logics).universalQuantifiedForm), conflicts)

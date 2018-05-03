@@ -35,12 +35,6 @@ trait Values { self: ForeignTypes with Constraints with Preds with Props =>
       override def naked = parent.naked
       override val toString = name
     }
-    case class Prop(value: Value.Naked, key: PropKey) extends Naked {
-      override val name = s"(${value.name}).${key.name}"
-      override val tpe = key.tpe
-      override def naked = this
-      override def toString = name
-    }
   }
 
   case class FunctionValue(self: Value, ret: Value, paramss: Seq[Seq[(String, Value)]])

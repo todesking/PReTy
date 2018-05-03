@@ -24,14 +24,20 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
     // TODO: [BUG] support path
     prop2l.get((value.naked, path)) getOrElse {
       val naked = value.naked
-      val v = {
-        val t = naked.tpe
-        if (t <:< query.types.int) freshIVar(naked.toString)
-        else if (t <:< query.types.boolean) freshBVar(naked.toString)
-        else throw new RuntimeException(s"Theres no type $t in Logic")
-      }
-      prop2l = prop2l + ((naked, path) -> v)
-      v
+      val logic =
+        naked match {
+          case Value.IntLiteral(l) =>
+            Logic.IValue(l)
+          case Value.BooleanLiteral(l) =>
+            Logic.BValue(l)
+          case _ =>
+            val t = naked.tpe
+            if (t <:< query.types.int) freshIVar(naked.toString)
+            else if (t <:< query.types.boolean) freshBVar(naked.toString)
+            else throw new RuntimeException(s"Theres no type $t in Logic")
+        }
+      prop2l = prop2l + ((naked, path) -> logic)
+      logic
     }
   def propFromLogic(l: Logic): Option[(Value, Seq[PropKey])] = l match {
     case lvar: Logic.Var =>
@@ -123,9 +129,6 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
           }.reduceOption(_ & _) getOrElse Logic.True
         val condLogic = condsToLogic(binding.filterKeys(env.conds.map(_.naked)), not = false)
         val uncondLogic = condsToLogic(binding.filterKeys(env.unconds.map(_.naked)), not = true)
-
-        ppp("conds", binding.filterKeys(env.conds.map(_.naked)))
-        ppp("condLogic", theValue, condLogic)
 
         (Seq((envLogic & condLogic & uncondLogic & logicL) --> logicR), Seq())
 

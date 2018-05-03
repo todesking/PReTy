@@ -13,7 +13,7 @@ trait Debugging { self: ForeignTypes =>
       }
     }
   // for temporal debugging
-  def ppp(s: Any*): Unit =
+  def dp(s: Any*): Unit =
     dprint(s: _*)
 
   def dumpDefSym(f: DefSym): String =
