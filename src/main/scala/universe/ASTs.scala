@@ -44,6 +44,12 @@ trait ASTs { self: ForeignTypes with Values =>
       value: Value) extends Expr {
       override def pretty = s"LocalRef($sym)"
     }
+    case class PackageRef(
+      sym: DefSym,
+      value: Value
+      ) extends Expr {
+        override def pretty = s"PackageRef($sym)"
+      }
     case class Super(value: Value) extends Expr {
       override def pretty = s"Super $value"
     }

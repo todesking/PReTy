@@ -98,6 +98,9 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
         val fv = world.values.functionValue(sym)
         graph.subtype(fv.ret, value)
 
+      case AST.PackageRef(sym, value) =>
+        graph.bind(value -> Pred.True)
+
       case AST.Super(value) =>
         // TODO: we can do something here
         graph

@@ -20,6 +20,8 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
       aArgss: Seq[Seq[Value]]): Graph = {
       require(argss.map(_.size) == aArgss.map(_.size))
 
+      dp("App:", this)
+
       val argSub = Map(self -> aSelf) ++
         argss.flatten.zip(aArgss.flatten).map { case ((n, p), a) => p -> a }
 

@@ -169,8 +169,14 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
       case s @ Super(qual, mix) =>
         AST.Super(valueRepo.newExpr(s.toString, t.pos, t.tpe))
       case i @ Ident(name) =>
-        val fv = valueRepo.functionValue(i.symbol.asTerm)
-        AST.LocalRef(i.symbol.asTerm, valueRepo.newRef(fv.ret, i.pos))
+        val sym = i.symbol.asTerm
+        if(sym.isPackage) {
+          AST.PackageRef(sym, valueRepo.newExpr(s"package:$sym", i.pos, sym.tpe))
+        } else {
+          // If the symbol is not package, it must local
+          val fv = valueRepo.functionValue(i.symbol.asTerm)
+          AST.LocalRef(sym, valueRepo.newRef(fv.ret, i.pos))
+        }
       case If(cond, thenp, elsep) =>
         AST.If(valueRepo.newExpr("if", t.pos, t.tpe), parseExpr(cond), parseExpr(thenp), parseExpr(elsep))
       case New(Ident(name)) =>
