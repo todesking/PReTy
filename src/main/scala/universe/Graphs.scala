@@ -52,7 +52,7 @@ trait Graphs { self: Values with Preds with Constraints with Envs with Debugging
     def infer(): Graph = {
       val next = prepareBindings().infer0()
       if (next.binding == this.binding) this
-      else next.infer0()
+      else next.infer()
     }
 
     private[this] def prepareBindings(): Graph = {
