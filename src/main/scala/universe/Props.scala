@@ -84,10 +84,7 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
 
         def getCoreExpr(e: Expr) = e match { case e: CoreExpr => e }
 
-        dprint("BE Start")
-        dprint(logicL, logicR)
         def buildEnvLogic(vars: Set[Logic.Var], skip: Set[Logic.Var]): Logic.LBool = {
-          dprint("BE", vars, skip)
           (vars -- skip).toSeq.foldLeft((Logic.True: Logic.LBool, skip ++ vars)) {
             case ((al, askip), vl) =>
               propFromLogic(vl).fold {
@@ -95,7 +92,6 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
                 (al, askip)
               } {
                 case (value, path) =>
-                  dprint(al, askip, vl, value, path, binding(value.naked))
                   // TODO: use correspond Prop to build logic
                   val pred = path match {
                     case Seq() => binding(value.naked)
