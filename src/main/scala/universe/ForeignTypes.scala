@@ -28,6 +28,7 @@ trait ForeignTypes {
     def isAccessor(f: DefSym): Boolean
     def unwrapAccessor(f: DefSym): DefSym
     def isPrimaryCtor(f: DefSym): Boolean
+    def isStable(f: DefSym): Boolean
 
     def isLocal(f: DefSym): Boolean
 

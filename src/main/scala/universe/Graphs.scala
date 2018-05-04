@@ -28,6 +28,7 @@ trait Graphs { self: Values with Preds with Constraints with Envs with Debugging
     def subtypeR(l: UnknownPred, r: Value): Graph =
       copy(constraints = constraints :+ Constraint.FocusRight(currentEnv, l, r))
 
+    // TODO: check overwrite
     def bind(vps: Map[Value, Pred]): Graph =
       copy(binding = binding ++ vps.map { case (k, v) => k.naked -> v })
 
@@ -43,10 +44,10 @@ trait Graphs { self: Values with Preds with Constraints with Envs with Debugging
       constraints.map(_.ground(binding))
 
     def hasUnassignedIncomingEdge(v: Value.Naked): Boolean =
-      incomingEdges(v).flatMap(_.lhs.toValue.map(_.naked)).exists(unassignedValues)
+      incomingEdges(v).map(_.lhs.dependency.naked).exists(unassignedValues)
 
     def incomingEdges(v: Value.Naked): Set[Constraint] =
-      constraints.filter { c => c.rhs.toValue.contains(v) }.toSet
+      constraints.filter { c => c.rhs.dependency.naked == v }.toSet
 
     def infer(): Graph = {
       val next = prepareBindings().infer0()

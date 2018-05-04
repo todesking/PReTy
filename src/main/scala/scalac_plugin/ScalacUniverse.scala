@@ -65,6 +65,7 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
       if(f.accessed == global.NoSymbol) f
       else f.accessed.asTerm
     override def isPrimaryCtor(f: DefSym) = f.isPrimaryConstructor
+    override def isStable(f: DefSym) = f.isStable
 
     override def isLocal(f: DefSym) = f.isLocalToBlock
 

@@ -10,16 +10,16 @@ trait Constraints { self: ForeignTypes with Values with Preds with Envs with Exp
     def rhs: UnknownPred
 
     def values: Set[Value] =
-      lhs.toValue.toSet ++ rhs.toValue
+      Set(lhs.dependency, rhs.dependency)
     def focus: Value
 
     // lhs <:< rhs under type tpe
     // TODO: It smells...
-    // TODO: Use rhs.tpe
+    // TODO: rhs.tpe
     def tpe: TypeSym = focus.tpe
 
     def ground(binding: Map[Value.Naked, Pred]): GroundConstraint =
-      GroundConstraint(this, binding, lhs.toValue, rhs.toValue, lhs.reveal(binding), rhs.reveal(binding))
+      GroundConstraint(this, binding, lhs.reveal(binding), rhs.reveal(binding))
 
     def arrowString: String
     override def toString = s"$lhs $arrowString $rhs"
@@ -38,9 +38,9 @@ trait Constraints { self: ForeignTypes with Values with Preds with Envs with Exp
   }
 
   // TODO: s/Ground/Concrete
-  case class GroundConstraint(constraint: Constraint, binding: Map[Value.Naked, Pred], lvalue: Option[Value], rvalue: Option[Value], lhs: Pred, rhs: Pred) {
+  case class GroundConstraint(constraint: Constraint, binding: Map[Value.Naked, Pred], lhs: Pred, rhs: Pred) {
     override def toString =
-      s"${lvalue getOrElse "(no value)"} $lhs ${constraint.arrowString} $rhs ${rvalue getOrElse "(no value)"}"
+      s"$lhs ${constraint.arrowString} $rhs"
     def focus: Value = constraint.focus
     def env = constraint.env
     def messageString = s"${lhs.messageString} ${constraint.arrowString} ${rhs.messageString}"

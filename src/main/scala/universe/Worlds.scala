@@ -95,7 +95,11 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
         Macro.method(this, methodName, s, retT, paramss)
       }
 
-      templates.register(f, value2pred, makro)
+      // TODO: dup to Templates/buildTemplate
+      val propKey =
+        if(query.isStable(f) || makro.nonEmpty) Some(PropKey(query.name(f), query.thisType(f), query.returnType(f)))
+        else None
+      templates.register(f, value2pred, makro, propKey)
     }
 
     def registerMembers(proxy: ru.TypeTag[_]): Unit = {
