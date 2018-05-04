@@ -23,16 +23,19 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
       val argSub = Map(self -> aSelf) ++
         argss.flatten.zip(aArgss.flatten).map { case ((n, p), a) => p -> a }
 
-      val finalRet =
-        propKey.fold[UnknownPred] {
-          ret.substitute(argSub)
+      val g =
+        propKey.fold {
+          graph.subtypeR(ret.substitute(argSub), aRet)
         } { k =>
-          aSelf.prop(k) // TODO: Add constraint that  prop(k) <:< ret
+          val p = aSelf.prop(k)
+          graph
+            .subtypeR(p, aRet)
+            .subtypeR(p, ret)
         }
 
       // TODO: tsort args
       argss.flatten.zip(aArgss.flatten).foldLeft {
-        graph
+        g
           .bind(bindings)
           .pushEnv()
           .subtype(aSelf, self)
@@ -40,8 +43,7 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
       } {
         case (g, ((name, p), a)) =>
           g.subtype(a, p.substitute(argSub)).let(name, a)
-      }.subtypeR(finalRet, aRet)
-        .popEnv()
+      }.popEnv()
       // Technically, exact constraint is ret =:= aRet.
       // Due to aRet is unbound, use ret <:< aRet for refinement inference.
     }

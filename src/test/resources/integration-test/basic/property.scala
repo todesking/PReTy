@@ -14,10 +14,9 @@ object InstanceRefinement {
     refine.assert(a.value > 0)
     refine.assert(a.a.value == 3)
   }
-  // TODO: force {value: _ < 10 && _ > 0} explicitly
-  @refine("a: {value: _ < 10}")
+  @refine("a: {value: _ > 10}")
   def f2(a: A): Unit = {
     // refine.assert(a.value > 0)
-    refine.assert(a.value < 10)
+    refine.assert(a.value > 10)
   }
 }
