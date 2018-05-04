@@ -23,6 +23,14 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
       dprint("Constraints:")
       dprint(graph.constraints.mkString("\n"))
 
+      dprint("Value dependencies")
+      graph.allValues.map(_.naked).toSeq.foreach { v =>
+        dprint(" ", v)
+        graph.incomingEdges(v).map(_.lhs.dependency).toSeq.foreach { d =>
+          dprint("    >", d)
+        }
+      }
+
       val inferred = graph.infer()
       dprint(s"Inferred binding:")
       (inferred.binding.keySet -- graph.binding.keySet).toSeq
