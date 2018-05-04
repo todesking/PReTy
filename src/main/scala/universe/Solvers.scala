@@ -97,18 +97,11 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
       val conflicts =
         smt.withProver() { prover =>
           constraints.flatMap { c =>
-            def valueString(v: Value) = s"$v: ${c.constraint.binding(v.naked)}"
-            def show(v: Value): String =
-              s"${pos(v)} ${valueString(v)}"
             val compiled = compiler.compileBoolean(c.logic)
-            dprint(s"Running ${show(c.constraint.focus)}")
-            dprint(s"  Compiled: ${compiled}")
             prover.push(compiled)
             val unsat = prover.isUnsat()
             prover.pop()
-            dprint(s"  => ${if (unsat) "UNSAT" else "SAT"}")
             if (unsat) {
-              dprint(s"Unsat: ${c.logic}; $compiled")
               Some(Conflict(c.constraint))
             } else {
               None
