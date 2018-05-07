@@ -20,6 +20,7 @@ object Lang {
         e
     }
 
+  // TODO: reject `this` in prop key
   object Parser extends scala.util.parsing.combinator.RegexParsers {
     private[this] def surround[A](l: String, content: => Parser[A], r: String): Parser[A] =
       (l ~> content) <~ r
@@ -41,9 +42,9 @@ object Lang {
     def pred: Parser[Pred] = pred_full | pred_one
     def pred_full = dict(name, pred) ^^ { ps =>
       // TODO: handle {_: {v1: ...}, v2: ...} pattern(should error?)
-      Pred(ps.get("_").map(_.self) getOrElse Expr.LitBoolean(true), ps.filterKeys(_ != "_"))
+      Pred(ps.get("_").flatMap(_.self), ps.filterKeys(_ != "_"))
     }
-    def pred_one = expr ^^ { e => Pred(e, Map()) }
+    def pred_one = expr ^^ { e => Pred(Some(e), Map()) }
 
     def expr: Parser[Expr] = opapp | expr1
     def expr1 = group | atom
@@ -73,7 +74,7 @@ object Lang {
     }
   }
 
-  case class Pred(self: Expr, props: Map[String, Pred])
+  case class Pred(self: Option[Expr], props: Map[String, Pred])
 
   sealed abstract class Expr(override val toString: String) {
     def names: Set[String]

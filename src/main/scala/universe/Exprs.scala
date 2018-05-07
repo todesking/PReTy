@@ -12,14 +12,16 @@ trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros w
   object Expr {
     import Lang.{ Expr => E }
     val CE = CoreExpr
+    // TODO: replace World to Macro env
     def compile(w: World, ast: Lang.Expr, env: Env, theType: TypeSym): Expr =
       compile(w, ast, env, theType, Map.empty)
+
     def compile(w: World, ast: Lang.Expr, env: Env, theType: TypeSym, sub: Map[String, Expr]): Expr =
-      compile0(w, ast, env, theType, sub) match {
+      compile1(w, ast, env, theType, sub) match {
         case Right(e) => e
         case Left(m) => m.expr
       }
-    private[this] def compile0(w: World, ast: Lang.Expr, env: Env, theType: TypeSym, sub: Map[String, Expr]): Either[Macro, Expr] = ast match {
+    private[this] def compile1(w: World, ast: Lang.Expr, env: Env, theType: TypeSym, sub: Map[String, Expr]): Either[Macro, Expr] = ast match {
       case E.TheValue =>
         Right(CE.TheValue(theType))
       case E.Ident(name) =>
@@ -37,13 +39,13 @@ trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros w
       case E.MacroRef(name) =>
         Left(w.findMacro(name))
       case E.Select(expr, name) =>
-        compile0(w, expr, env, theType, sub) match {
+        compile1(w, expr, env, theType, sub) match {
           case Left(m) => m.select(name)
           case Right(e) =>
             throw new RuntimeException(s"Invalid select: $ast")
         }
       case E.App(expr, args) =>
-        compile0(w, expr, env, theType, sub) match {
+        compile1(w, expr, env, theType, sub) match {
           case Left(m) =>
             m.apply(None, args.map(compile(w, _, env, theType, sub)), env)
           case Right(e) =>

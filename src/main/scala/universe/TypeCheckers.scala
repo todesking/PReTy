@@ -31,7 +31,7 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
         }
       }
 
-      val inferred = graph.infer()
+      val inferred = graph.infer(world)
       dprint(s"Inferred binding:")
       (inferred.binding.keySet -- graph.binding.keySet).toSeq
         .foreach {
@@ -91,7 +91,7 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
           .popEnv()
 
       case AST.This(value) =>
-        graph.bind(Map(value -> Pred.True))
+        graph.bind(value -> world.preds.default(value.tpe))
 
       case AST.Apply(self, sym, value, argss) =>
         val g = graph.pushEnv()
@@ -106,7 +106,7 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
         graph
 
       case AST.PackageRef(sym, value) =>
-        graph.bind(value -> Pred.True)
+        graph.bind(value -> world.preds.default(value.tpe))
 
       case AST.Super(value) =>
         // TODO: we can do something here
@@ -119,7 +119,7 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
         graph
 
       case AST.UnitLiteral(value) =>
-        graph.bind(value -> Pred.True)
+        graph.bind(value -> world.preds.default(value.tpe))
 
       case AST.If(value, cond, thenp, elsep) =>
         val g1 = buildGraph(graph.pushEnv, cond, true).popEnv
@@ -128,7 +128,7 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
         g3
 
       case AST.New(v) =>
-        graph.bind(v -> Pred.True)
+        graph.bind(v -> world.preds.default(v.tpe))
     }
   }
 }

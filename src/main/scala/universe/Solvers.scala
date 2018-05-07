@@ -20,7 +20,6 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
       val (cs, cfs) =
         splitMap(constraints) { c =>
           if (c.lhs == c.rhs) Some(None)
-          else if (c.rhs == Pred.True) Some(None)
           else None
         }
       (cs, cfs.flatten)
@@ -56,8 +55,7 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
 
     private[this] def propConstraints(c: GroundConstraint): Seq[(Seq[PropKey], Expr, Expr)] = {
       def gather(l: Pred, r: Pred, path: Seq[PropKey]): Seq[(Seq[PropKey], Expr, Expr)] = {
-        val keys = l.definedProps.keySet ++ r.definedProps.keySet
-        (path, l.self, r.self) +: keys.toSeq.flatMap { k =>
+        (path, l.self, r.self) +: r.propKeys.toSeq.flatMap { k =>
           gather(l.prop(k), r.prop(k), path :+ k)
         }
       }

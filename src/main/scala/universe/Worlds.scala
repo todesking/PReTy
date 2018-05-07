@@ -63,6 +63,7 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
 
     val templates = new TemplateRepo(this)
     val values = new ValueRepo
+    val preds = new PredRepo(this)
 
     def registerMember(selfName: String, methodName: String, retName: String, paramNames: Seq[Seq[(String, String)]], src: String): Unit = {
       val selfT = query.types.fromName(selfName)
@@ -78,18 +79,16 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
       val fv = values.functionValue(f)
       val name2value = paramss.flatten.map(_._1).zip(fv.paramss.flatten.map(_._2)).toMap + ("this" -> fv.self) + ("_" -> fv.ret)
       val name2type = paramss.flatten.toMap + ("this" -> selfT) + ("_" -> fv.ret.tpe)
-      val env = Env(name2value)
-      val base = Map(fv.self -> Pred.True, fv.ret -> Pred.True) ++ fv.paramss.flatten.map(_._2 -> Pred.True)
       if (simples.nonEmpty && srcs.nonEmpty) throw new RuntimeException("@refine and @refine.simple is exclusive")
       if (simples.size > 1) throw new RuntimeException("Multiple @refine.simple")
       val defs =
         if(simples.isEmpty) Lang.parse(srcs)
           else Lang.parseSingle(s"_: @core.eq(_, ${simples.head})")
+      val env = Env(name2value)
       val value2pred = 
-        base ++ defs.map {
+        defs.map {
               case (name, d) =>
-                val v = name2value(name)
-                v -> Pred.compile(this, d, name2type(name), env)
+                name2value(name) -> preds.compile(name2type(name), d, env)
             }
       val makro = simples.headOption.map { s =>
         Macro.method(this, methodName, s, retT, paramss)

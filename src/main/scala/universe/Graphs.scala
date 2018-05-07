@@ -2,7 +2,7 @@ package com.todesking.prety.universe
 
 import com.todesking.prety.util.uniqueMap
 
-trait Graphs { self: Values with Preds with Constraints with Envs with Debugging =>
+trait Graphs { self: Values with Preds with Constraints with Envs with Worlds with Debugging =>
   case class Graph(
     constraints: Seq[Constraint],
     binding: Map[Value.Naked, Pred],
@@ -49,28 +49,29 @@ trait Graphs { self: Values with Preds with Constraints with Envs with Debugging
     def incomingEdges(v: Value.Naked): Set[Constraint] =
       constraints.filter { c => c.rhs.dependency.naked == v }.toSet
 
-    def infer(): Graph = {
-      val next = prepareBindings().infer0()
+    def infer(w: World): Graph = {
+      val next = prepareBindings(w).infer0(w)
       if (next.binding == this.binding) this
-      else next.infer()
+      else next.infer(w)
     }
 
-    private[this] def prepareBindings(): Graph = {
+    private[this] def prepareBindings(w: World): Graph = {
       copy(
         binding = binding ++ unassignedValues.collect {
           case v @ Value.IntLiteral(i) =>
-            v -> Pred.exactInt(i)
+            v -> w.preds.exactInt(i)
           case v @ Value.BooleanLiteral(b) =>
-            v -> Pred.exactBoolean(b)
+            v -> w.preds.exactBoolean(b)
         })
     }
 
-    protected def infer0(): Graph = {
+    protected def infer0(w: World): Graph = {
       val newBinding =
         unassignedValues
           .filterNot(hasUnassignedIncomingEdge)
           .foldLeft(binding) { (b, v) =>
-            val p = Pred.and(incomingEdges(v).map(_.lhs).map(_.reveal(b)).toSeq)
+            val preds = incomingEdges(v).map(_.lhs).map(_.reveal(b)).toSeq
+            val p = if (preds.isEmpty) w.preds.default(v.tpe) else Pred.and(preds)
             dprint(s"INFER $v: $p")
             b + (v -> p)
           }

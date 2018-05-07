@@ -57,8 +57,9 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
       }
     }
     override def pos(f: DefSym) = f.pos
+    // TODO: check refine.simple annotation
     override def stableValueMembers(t: TypeSym) =
-      t.members.map(_.asTerm).filter(_.isStable).toSeq
+      t.members.filter(_.isTerm).map(_.asTerm).filter(_.isStable).toSeq
 
     override def isAccessor(f: DefSym) = f.isAccessor
     override def unwrapAccessor(f: DefSym) =
@@ -170,7 +171,7 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
         AST.Super(valueRepo.newExpr(s.toString, t.pos, t.tpe))
       case i @ Ident(name) =>
         val sym = i.symbol.asTerm
-        if(sym.isPackage) {
+        if(sym.hasPackageFlag) {
           AST.PackageRef(sym, valueRepo.newExpr(s"package:$sym", i.pos, sym.tpe))
         } else {
           // If the symbol is not package, it must local

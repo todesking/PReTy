@@ -11,7 +11,7 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
     makro: Option[Macro],
     propKey: Option[PropKey]) {
     override def toString =
-      s"$self.(${argss.map(_.map { case (_, x) => s"${x}: ${bindings.get(x) getOrElse Pred.True}" }.mkString("(", ", ", ")")).mkString("")}) = $ret: ${bindings.get(ret) getOrElse Pred.True}; $bindings"
+      s"$self.(${argss.map(_.map { case (_, x) => s"${x}: ${bindings.get(x).map(_.toString) getOrElse "(none)"}" }.mkString("(", ", ", ")")).mkString("")}) = $ret: ${bindings.get(ret).map(_.toString) getOrElse "(none)"}; $bindings"
     // TODO: check acyclic
     def apply(
       graph: Graph,
@@ -107,11 +107,11 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
           // If local member has no refinement spec, let infer it later.
           Map.empty[Value, Pred]
         } else {
-          Map(fv.ret -> Pred.True, fv.self -> Pred.True) ++ fv.paramss.flatten.map(_._2).map { v => v -> Pred.True }.toMap ++ preds
+          (Seq(fv.ret, fv.self) ++ fv.paramss.flatten.map(_._2)).map { v => v -> world.preds.default(v.tpe) }.toMap ++ preds
             .map {
               case (k, v) =>
                 val target = if (k == "_") fv.ret else env.findValue(k)
-                val pred = Pred.compile(world, v, target.tpe, env)
+                val pred = world.preds.compile(target.tpe, v, env)
                 target -> pred
             }
         }
