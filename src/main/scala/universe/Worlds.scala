@@ -96,7 +96,7 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
 
       // TODO: dup to Templates/buildTemplate
       val propKey =
-        if(query.isStable(f) || makro.nonEmpty) Some(PropKey(query.name(f), query.thisType(f), query.returnType(f)))
+        if(query.isStable(f)) Some(PropKey(query.name(f), query.thisType(f), query.returnType(f)))
         else None
       templates.register(f, value2pred, makro, propKey)
     }

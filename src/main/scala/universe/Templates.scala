@@ -116,7 +116,7 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
             }
         }
       val propKey =
-        if (query.isStable(f) || makro.nonEmpty) Some(PropKey(query.name(f), query.thisType(f), query.returnType(f)))
+        if (query.isStable(f)) Some(PropKey(query.name(f), query.thisType(f), query.returnType(f)))
         else None
       Template(fv.self, fv.ret, fv.paramss, bindings, makro, propKey)
     }
