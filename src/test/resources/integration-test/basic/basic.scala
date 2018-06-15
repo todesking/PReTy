@@ -1,5 +1,3 @@
-// debugPrint
-
 import com.todesking.prety.refine
 
 object Basic {

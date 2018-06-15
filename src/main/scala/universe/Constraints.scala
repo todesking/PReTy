@@ -39,6 +39,9 @@ trait Constraints { self: ForeignTypes with Values with Preds with Envs with Exp
 
   // TODO: s/Ground/Concrete
   case class GroundConstraint(constraint: Constraint, binding: Map[Value.Naked, Pred], lhs: Pred, rhs: Pred) {
+    require(constraint.lhs.tpe <:< lhs.tpe, s"$constraint, ${constraint.lhs.tpe}, $lhs, ${lhs.tpe}")
+    require(constraint.rhs.tpe <:< rhs.tpe, s"$constraint, ${constraint.rhs.tpe}, $rhs, ${rhs.tpe}")
+    require(lhs.tpe <:< rhs.tpe)
     override def toString =
       s"$lhs ${constraint.arrowString} $rhs"
     def focus: Value = constraint.focus

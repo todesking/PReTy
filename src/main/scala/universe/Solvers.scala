@@ -44,19 +44,29 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
       val xs =
         propConstraints(c).map {
           case (path, l, r) =>
-            world
-              .findProp(path.lastOption.map(_.tpe) getOrElse c.tpe)
-              .solveConstraint(c.focus, path, c.env, binding, l, r)
+            solveTrivial(l, r) getOrElse {
+              world
+                .findProp(path.lastOption.map(_.tpe) getOrElse c.tpe)
+                .solveConstraint(c.focus, path, c.env, binding, l, r)
+            }
         }
       val logics = xs.flatMap(_._1)
       val conflicts = xs.flatMap(_._2)
       (LogicConstraint(c, Logic.and(logics).universalQuantifiedForm), conflicts)
     }
 
+    private[this] def solveTrivial(l: Expr, r: Expr): Option[(Seq[Logic.LBool], Seq[Conflict])] = (l, r) match {
+      case (CoreExpr.True, CoreExpr.True) => Some((Seq(), Seq()))
+      case _ => None
+    }
+
     private[this] def propConstraints(c: GroundConstraint): Seq[(Seq[PropKey], Expr, Expr)] = {
       def gather(l: Pred, r: Pred, path: Seq[PropKey]): Seq[(Seq[PropKey], Expr, Expr)] = {
         (path, l.self, r.self) +: r.propKeys.toSeq.flatMap { k =>
-          gather(l.prop(k), r.prop(k), path :+ k)
+          if (l.customized(k) || r.customized(k))
+            gather(l.prop(k), r.prop(k), path :+ k)
+          else
+            Seq()
         }
       }
       val l = c.lhs.cast(c.rhs.tpe)

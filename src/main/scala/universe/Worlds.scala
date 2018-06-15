@@ -58,8 +58,11 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
     def findPropKey(name: String, targetType: TypeSym): PropKey =
         memberEnv.propKey(targetType, name)
 
+    // TODO: [BUG] types are partial order. need tsort
     def findProp(tpe: TypeSym): Prop =
-      props.values.filter(tpe <:< _.tpe).toSeq.sortWith { (a, b) => a.tpe <:< b.tpe }.head // TODO: [BUG] types are partial order. need tsort
+      props.values.filter(tpe <:< _.tpe).toSeq.sortWith { (a, b) => a.tpe <:< b.tpe }.headOption getOrElse {
+        throw new RuntimeException(s"Property for $tpe not found: props=${props.values}")
+      }
 
     val templates = new TemplateRepo(this)
     val values = new ValueRepo

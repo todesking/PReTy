@@ -79,8 +79,9 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
           val template = if (inLocal) world.templates.registerLocal(sym, graph.currentEnv) else world.templates.get(sym)
           // TODO: Handle local def
           body.fold(graph) { b =>
-            buildGraph(graph, b, true)
-              .subtype(b.value, template.ret)
+            val base = buildGraph(graph, b, true)
+            if (query.isConstructor(sym)) base
+            else base.subtype(b.value, template.ret)
           }.bind(template.bindings)
         }
 

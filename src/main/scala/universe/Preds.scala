@@ -16,6 +16,8 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
 
     def propKeys: Set[PropKey]
     def customPropKeys: Set[PropKey]
+    def customized(k: PropKey): Boolean =
+      customPropKeys.contains(k)
 
     // where this.tpe <:< tpe
     // where _.tpe <:< tpe
@@ -97,6 +99,7 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
       UnknownPred.Ref(this, k)
     def substitute(mapping: Map[Value, Value]) =
       UnknownPred.Substitute(mapping, this)
+    def tpe: TypeSym
   }
   object UnknownPred {
     def ref(v: Value, k: PropKey): UnknownPred =
@@ -110,12 +113,14 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
           }
       override def dependency = self.dependency
       override def toString = s"$self.$key"
+      override def tpe = key.tpe
     }
 
     case class OfValue(value: Value) extends UnknownPred {
       override def revealOpt(binding: Map[Value.Naked, Pred]) = binding.get(value.naked)
       override def dependency = value
       override def toString = s"?($value)"
+      override def tpe = value.tpe
     }
 
     case class Substitute(mapping: Map[Value, Value], original: UnknownPred) extends UnknownPred {
@@ -123,6 +128,7 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
         original.revealOpt(binding).map(_.substitute(mapping))
       override def dependency = original.dependency
       override def toString = s"[${mapping.toSeq.map { case (k, v) => s"$k -> $v" }.mkString(", ")}](${original.dependency})"
+      override def tpe = original.tpe
     }
   }
 
@@ -169,7 +175,7 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
 
     def exactBoolean(v: Boolean): Pred =
       Pred.Custom(
-        default(query.types.int),
+        default(query.types.boolean),
         Some(CoreExpr.BOOL_EQ(CoreExpr.TheValue(query.types.boolean), CoreExpr.BOOL_Lit(v))),
         Map())
 

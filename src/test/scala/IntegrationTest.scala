@@ -65,6 +65,7 @@ class IntegrationTest extends FunSpec {
           LocalPos(lnum + 1 - 1, col + 1) -> msg.replaceAll("\\\\n", "\n")
       })
 
+    if (debug) println(s"Testing ${f.path} ...")
     val result = Compiler.compile(f.path, debug)
     assert(result.infos == Seq())
     assert(result.warnings == Seq())
