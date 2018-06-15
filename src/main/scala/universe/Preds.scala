@@ -30,7 +30,7 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
       Pred.Custom(
         this,
         Some(self & rhs.self),
-        propKeys.toSeq
+        propKeys.toSeq // TODO: propKeys ++ rhs.propKeys ?
           .map { k => k -> (prop(k) & rhs.prop(k)) }
           .toMap)
     }

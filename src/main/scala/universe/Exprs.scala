@@ -64,8 +64,8 @@ trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros w
         this match {
           case CoreExpr.And(es) =>
             CoreExpr.And(es :+ e)
-          case e =>
-            CoreExpr.And(Seq(this, e))
+          case e2 =>
+            CoreExpr.And(Seq(e2, e))
         }
     }
   }
