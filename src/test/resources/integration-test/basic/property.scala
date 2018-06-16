@@ -1,4 +1,3 @@
-// debugPrint
 import com.todesking.prety.refine
 
 trait A {
@@ -12,10 +11,10 @@ object InstanceRefinement {
   def f1(a: A): Unit = {
     refine.assert(a.value > 0)
     refine.assert(a.a.value == 3)
+    refine.assert(a.a.a.a.a.value > 0)
   }
   @refine("a: {value: _ > 10}")
   def f2(a: A): Unit = {
-    // refine.assert(a.value > 0)
     refine.assert(a.value > 10)
   }
 }

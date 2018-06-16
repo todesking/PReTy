@@ -88,8 +88,8 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
         if(simples.isEmpty) Lang.parse(srcs)
           else Lang.parseSingle(s"_: @core.eq(_, ${simples.head})")
       val env = Env(name2value)
-      val value2pred = 
-        defs.map {
+      val value2pred =
+        name2value.map { case (k, v) => name2value(k) -> preds.default(v.tpe) }.toMap ++ defs.map {
               case (name, d) =>
                 name2value(name) -> preds.compile(name2type(name), d, env)
             }

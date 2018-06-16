@@ -2,7 +2,7 @@ package com.todesking.prety.universe
 
 import com.todesking.prety.util.uniqueMap
 
-trait Graphs { self: Values with Preds with Constraints with Envs with Worlds with Debugging =>
+trait Graphs { self: Values with Preds with Templates with Constraints with Envs with Worlds with Debugging =>
   case class Graph(
     constraints: Seq[Constraint],
     binding: Map[Value.Naked, Pred],
@@ -21,6 +21,9 @@ trait Graphs { self: Values with Preds with Constraints with Envs with Worlds wi
       copy(envStack = currentEnv :: envStack)
     def popEnv(): Graph =
       copy(envStack = envStack.tail, currentEnv = envStack.head)
+
+    def template(t: Template): Graph =
+      bind(t.bindings)
 
     def subtype(l: Value, r: UnknownPred): Graph =
       copy(constraints = constraints :+ Constraint.FocusLeft(currentEnv, l, r))
@@ -71,7 +74,7 @@ trait Graphs { self: Values with Preds with Constraints with Envs with Worlds wi
           .filterNot(hasUnassignedIncomingEdge)
           .foldLeft(binding) { (b, v) =>
             val preds = incomingEdges(v).map(_.lhs).map(_.reveal(b)).toSeq
-            val p = if (preds.isEmpty) w.preds.default(v.tpe) else Pred.and(preds)
+            val p = if (preds.isEmpty) w.preds.default(v.tpe) else Pred.and(preds) // TODO: [BUG] Use OR, not AND
             dprint(s"INFER $v: $p")
             b + (v -> p)
           }
