@@ -3,6 +3,7 @@ package com.todesking.prety.universe
 trait Values { self: ForeignTypes with Constraints with Preds with Props =>
   sealed abstract class Value {
     val name: String
+    val shortString: String = toString
     val tpe: TypeSym
     def naked: Value.Naked
   }
@@ -14,23 +15,27 @@ trait Values { self: ForeignTypes with Constraints with Preds with Props =>
     sealed abstract class Naked extends Value
 
     case class Origin(id: Int, name: String, tpe: TypeSym) extends Naked {
-      override def toString = s"$name#$id: $tpe"
+      override def toString = s"#$id($name: $tpe)"
+      override val shortString = s"#$id"
       override def naked = this
     }
     case class IntLiteral(v: Int) extends Naked {
       override val name = s"int($v)"
+      override val shortString = s"$v"
       override val tpe = query.types.int
       override def naked = this
       override val toString = name
     }
     case class BooleanLiteral(v: Boolean) extends Naked {
       override val name = s"boolean($v)"
+      override val shortString = s"$v"
       override val tpe = query.types.boolean
       override def naked = this
       override val toString = name
     }
     case class Ref(id: Int, parent: Value) extends Value {
       override val name = s"ref($parent)#$id"
+      override val shortString = s"#$id=${parent.shortString}"
       override val tpe = parent.tpe
       override def naked = parent.naked
       override val toString = name

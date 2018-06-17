@@ -47,7 +47,7 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
         }
       dprint("Ground constraints:")
       inferred.groundConstraints.foreach { c =>
-        dprint(f"${pos(c.focus)}%-7s $c")
+        dprint(f"${pos(c.focus)}%-7s ${c.focus.shortString}%-3s: $c")
       }
 
       val conflicts = new Solver(world).solve(inferred)
