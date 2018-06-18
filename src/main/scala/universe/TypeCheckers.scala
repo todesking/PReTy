@@ -73,6 +73,7 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
               p("This", str(v))
             case Apply(self, sym, value, argss) =>
               p("App", str(value))
+              show(self, level + 1)
               argss.foreach(_.foreach(show(_, level + 1)))
             case LocalRef(sym, value) =>
               p("Ref", str(value))
