@@ -71,7 +71,9 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
       val naked = unwrap(f)
       if (templates.contains(naked))
         throw new RuntimeException(s"registerLocal: Conflict: $naked")
-      freshTemplate(naked, env)
+      val t = freshTemplate(naked, env)
+      templates = templates + (naked -> t)
+      t
     }
 
     private[this] def unwrap(f: DefSym) =
