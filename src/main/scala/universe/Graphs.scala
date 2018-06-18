@@ -47,10 +47,11 @@ trait Graphs { self: Values with Preds with Templates with Constraints with Envs
       constraints.map(_.ground(binding))
 
     def hasUnassignedIncomingEdge(v: Value.Naked): Boolean =
-      incomingEdges(v).map(_.lhs.dependency.naked).exists(unassignedValues)
+      incomingEdges(v).flatMap(_.lhs.dependencies.map(_.naked)).exists(unassignedValues)
 
     def incomingEdges(v: Value.Naked): Set[Constraint] =
-      constraints.filter { c => c.rhs.dependency.naked == v }.toSet
+      // TODO: it smells...
+      constraints.filter { c => c.rhs.dependencies.map(_.naked).contains(v) }.toSet
 
     def infer(w: World): Graph = {
       val next = prepareBindings(w).infer0(w)

@@ -26,7 +26,7 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
       dprint("Value dependencies")
       graph.allValues.map(_.naked).toSeq.foreach { v =>
         dprint(" ", v)
-        graph.incomingEdges(v).map(_.lhs.dependency).toSeq.foreach { d =>
+        graph.incomingEdges(v).flatMap(_.lhs.dependencies).toSeq.foreach { d =>
           dprint("    >", d)
         }
       }

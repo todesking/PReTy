@@ -61,7 +61,7 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
     // TODO: [BUG] types are partial order. need tsort
     def findProp(tpe: TypeSym): Prop =
       props.values.filter(tpe <:< _.tpe).toSeq.sortWith { (a, b) => a.tpe <:< b.tpe }.headOption getOrElse {
-        throw new RuntimeException(s"Property for $tpe not found: props=${props.values}")
+        throw new RuntimeException(s"Property for $tpe not found: props=${props.values.mkString(", ")}")
       }
 
     val templates = new TemplateRepo(this)

@@ -8,27 +8,8 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
   class Solver(world: World) {
     private[this] val valueRepo = world.values
 
-    def solve(g: Graph): Seq[Conflict] = {
-      val (cs, trivialConflicts) = solveTrivial(g.groundConstraints.map(simplify))
-      val nontrivialConflicts = solveSMT(cs, g.binding)
-      trivialConflicts ++ nontrivialConflicts
-    }
-
-    private[this] def simplify(g: GroundConstraint): GroundConstraint = g
-
-    private[this] def solveTrivial(constraints: Seq[GroundConstraint]): (Seq[GroundConstraint], Seq[Conflict]) = {
-      val (cs, cfs) =
-        splitMap(constraints) { c =>
-          if (c.lhs == c.rhs) Some(None)
-          else None
-        }
-      (cs, cfs.flatten)
-    }
-    private[this] def splitMap[A, B](xs: Seq[A])(f: A => Option[B]): (Seq[A], Seq[B]) =
-      xs.foldLeft((Seq.empty[A], Seq.empty[B])) {
-        case ((aa, ab), x) =>
-          f(x).fold((aa :+ x, ab)) { b => (aa, ab :+ b) }
-      }
+    def solve(g: Graph): Seq[Conflict] =
+      solveSMT(g.groundConstraints, g.binding)
 
     def solveSMT(constraints: Seq[GroundConstraint], binding: Map[Value.Naked, Pred]): Seq[Conflict] = {
       val (ls, cs) =
@@ -55,9 +36,21 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
       (LogicConstraint(c, Logic.and(logics).universalQuantifiedForm), conflicts)
     }
 
-    private[this] def solveTrivial(l: Expr, r: Expr): Option[(Seq[Logic.LBool], Seq[Conflict])] = (l, r) match {
-      case (CoreExpr.True, CoreExpr.True) => Some((Seq(), Seq()))
+    private[this] def solveTrivial(l: Expr, r: Expr): Option[(Seq[Logic.LBool], Seq[Conflict])] = (simplify(l), simplify(r)) match {
+      case (_, CoreExpr.True) => Some((Seq(), Seq()))
+      case (l, r) if l == r => Some((Seq(), Seq()))
       case _ => None
+    }
+    private[this] def simplify(e: Expr): Expr = e match {
+      case CoreExpr.And(es) =>
+        es.map(simplify).filterNot(_ == CoreExpr.True) match {
+          case Seq() => CoreExpr.True
+          case Seq(e1) => e1
+          case Seq(es @ _*) =>
+            if (es.contains(CoreExpr.False)) CoreExpr.False
+            else CoreExpr.And(es.asInstanceOf[Seq[CoreExpr]]) // TODO: Why typecheck failed
+        }
+      case e => e
     }
 
     private[this] def propConstraints(c: GroundConstraint): Seq[(Seq[PropKey], Expr, Expr)] = {

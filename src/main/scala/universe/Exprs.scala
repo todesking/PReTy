@@ -73,6 +73,7 @@ trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros w
     import query.{ types => T }
 
     val True = BOOL_Lit(true)
+    val False = BOOL_Lit(false)
 
     sealed trait BinaryOp extends CoreExpr {
       def lhs: CoreExpr

@@ -30,7 +30,7 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
       Pred.Custom(
         this,
         Some(self & rhs.self),
-        propKeys.toSeq // TODO: propKeys ++ rhs.propKeys ?
+        (this.customPropKeys ++ rhs.customPropKeys).toSeq
           .map { k => k -> (prop(k) & rhs.prop(k)) }
           .toMap)
     }
@@ -94,16 +94,31 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
       throw new RuntimeException(s"Can't reveal $this(env=$binding)")
     }
     def revealOpt(binding: Map[Value.Naked, Pred]): Option[Pred]
-    def dependency: Value
+    def dependencies: Set[Value]
     def prop(k: PropKey): UnknownPred =
       UnknownPred.Ref(this, k)
     def substitute(mapping: Map[Value, Value]) =
       UnknownPred.Substitute(mapping, this)
     def tpe: TypeSym
+    def &(rhs: UnknownPred): UnknownPred =
+      UnknownPred.And(this, rhs)
   }
   object UnknownPred {
     def ref(v: Value, k: PropKey): UnknownPred =
       Ref(OfValue(v), k)
+
+    case class And(lhs: UnknownPred, rhs: UnknownPred) extends UnknownPred {
+      require(lhs.tpe <:< rhs.tpe)
+
+      override def revealOpt(binding: Map[Value.Naked, Pred]) =
+        for {
+          l <- lhs.revealOpt(binding)
+          r <- rhs.revealOpt(binding)
+        } yield l & r
+      override def dependencies = lhs.dependencies ++ rhs.dependencies
+      override def toString = s"$lhs & $rhs"
+      override def tpe = rhs.tpe
+    }
 
     case class Ref(self: UnknownPred, key: PropKey) extends UnknownPred {
       override def revealOpt(binding: Map[Value.Naked, Pred]) =
@@ -111,14 +126,14 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
           .map { pred =>
             pred.prop(key)
           }
-      override def dependency = self.dependency
+      override def dependencies = self.dependencies
       override def toString = s"$self.$key"
       override def tpe = key.tpe
     }
 
     case class OfValue(value: Value) extends UnknownPred {
       override def revealOpt(binding: Map[Value.Naked, Pred]) = binding.get(value.naked)
-      override def dependency = value
+      override def dependencies = Set(value)
       override def toString = s"?($value)"
       override def tpe = value.tpe
     }
@@ -126,8 +141,8 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
     case class Substitute(mapping: Map[Value, Value], original: UnknownPred) extends UnknownPred {
       override def revealOpt(binding: Map[Value.Naked, Pred]) =
         original.revealOpt(binding).map(_.substitute(mapping))
-      override def dependency = original.dependency
-      override def toString = s"[${mapping.toSeq.map { case (k, v) => s"$k -> $v" }.mkString(", ")}](${original.dependency})"
+      override def dependencies = original.dependencies
+      override def toString = s"[${mapping.toSeq.map { case (k, v) => s"$k -> $v" }.mkString(", ")}]($original)"
       override def tpe = original.tpe
     }
   }

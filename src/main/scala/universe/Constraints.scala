@@ -10,7 +10,7 @@ trait Constraints { self: ForeignTypes with Values with Preds with Envs with Exp
     def rhs: UnknownPred
 
     def values: Set[Value] =
-      Set(lhs.dependency, rhs.dependency)
+      lhs.dependencies ++ rhs.dependencies
     def focus: Value
 
     // lhs <:< rhs under type tpe
