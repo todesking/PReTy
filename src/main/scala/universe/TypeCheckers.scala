@@ -50,6 +50,66 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
         dprint(f"${pos(c.focus)}%-7s ${c.focus.shortString}%-3s: $c")
       }
 
+      dprint("Constraints with AST")
+      locally {
+        val cs = inferred.groundConstraints
+          .groupBy(_.focus)
+          .toMap
+        def str(v: Value): String = {
+          s"${v.shortString} ${cs.get(v) map (_.mkString(", ")) orElse inferred.binding.get(v.naked) getOrElse "???"}"
+        }
+        def show(ast: AST, level: Int): Unit = {
+          def p(args: Any*) = dprint(Seq(" " * (level * 2)) ++ args: _*)
+          import AST._
+          ast match {
+            case CTODef(impl) =>
+              p("CTO")
+              impl.foreach(show(_, level + 1))
+            case Block(value, stmts, expr) =>
+              p("Block", str(value))
+              stmts.foreach(show(_, level + 1))
+              show(expr, level + 1)
+            case This(v) =>
+              p("This", str(v))
+            case Apply(self, sym, value, argss) =>
+              p("App", str(value))
+              argss.foreach(_.foreach(show(_, level + 1)))
+            case LocalRef(sym, value) =>
+              p("Ref", str(value))
+            case PackageRef(sym, value) =>
+              p("Package", str(value))
+            case Super(v) =>
+              p("Super", str(v))
+            case lit: Literal =>
+              p("Lit", str(lit.value))
+            case New(v) =>
+              p("New", str(v))
+            case If(v, c, th, el) =>
+              p("If", str(v))
+              show(c, level + 1)
+              p("Then")
+              show(th, level + 1)
+              p("Else")
+              show(el, level + 1)
+            case FunDef(sym, body) =>
+              val t = world.templates.get(sym)
+              p("FunDef", sym)
+              t.argss.foreach { args =>
+                args.foreach {
+                  case (name, value) =>
+                    p("-", str(value))
+                }
+              }
+              body.foreach(show(_, level + 1))
+            case ValDef(sym, body) =>
+              val t = world.templates.get(sym)
+              p("ValDef", sym, str(t.ret))
+              body.foreach(show(_, level + 1))
+          }
+        }
+        show(cto, 0)
+      }
+
       val conflicts = new Solver(world).solve(inferred)
       conflicts
     }

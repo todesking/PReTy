@@ -55,6 +55,7 @@ trait ASTs { self: ForeignTypes with Values =>
     }
     sealed abstract class Literal extends Expr {
       val lit: Any
+      def value: Value
       override def pretty = s"Lit($lit) $value"
     }
     case class IntLiteral(value: Value, lit: Int) extends Literal {
