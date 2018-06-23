@@ -28,24 +28,40 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
         case (path, l, r) =>
           dprint("  ", path.map(_.name).mkString("/", "/", ""), l, "<=", r)
       }
+
+      val env = Logic.and(binding.map {
+        case (v, p) =>
+          compileTrivial(v, p.self) getOrElse {
+            world.findProp(v.tpe).toLogic(p.self, v)
+          }
+      }.toSeq)
+
+      def condsToLogic(l: Map[Value.Naked, Pred], not: Boolean) =
+        // TODO: [BUG] check child props
+        l.map {
+          case (value, pred) =>
+            if (not) {
+              world.findProp(query.types.boolean).toLogic(pred.self, value) & !propInLogicB(value, Seq())
+            } else {
+              world.findProp(query.types.boolean).toLogic(pred.self, value) & propInLogicB(value, Seq())
+            }
+        }.reduceOption(_ & _) getOrElse Logic.True
+      val condLogic = condsToLogic(binding.filterKeys(c.env.conds.map(_.naked)), not = false)
+      val uncondLogic = condsToLogic(binding.filterKeys(c.env.unconds.map(_.naked)), not = true)
+
       val xs =
         pcs.map {
           case (path, l, r) =>
             solveTrivial(l, r) getOrElse {
               world
                 .findProp(path.lastOption.map(_.tpe) getOrElse c.tpe)
-                .solveConstraint(c.focus, path, c.env, binding, l, r)
+                .solveConstraint(c.focus, path, env & condLogic & uncondLogic, binding, l, r)
             }
         }
-      val env = binding.map {
-        case (v, p) =>
-          compileTrivial(v, p.self) getOrElse {
-            world.findProp(v.tpe).toLogic(p.self, v)
-          }
-      }.toSeq
+
       val logics = xs.flatMap(_._1)
       val conflicts = xs.flatMap(_._2)
-      (LogicConstraint(c, Logic.and(env) & Logic.and(logics).universalQuantifiedForm), conflicts)
+      (LogicConstraint(c, Logic.and(logics).universalQuantifiedForm), conflicts)
     }
 
     private[this] def compileTrivial(v: Value.Naked, e: Expr): Option[Logic.LBool] = simplify(e) match {

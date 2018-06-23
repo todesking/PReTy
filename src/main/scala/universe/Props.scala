@@ -32,9 +32,9 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
             Logic.BValue(l)
           case _ =>
             val t = naked.tpe
-            if (t <:< query.types.int) freshIVar(naked.toString)
-            else if (t <:< query.types.boolean) freshBVar(naked.toString)
-            else freshIVar(naked.toString) // TODO: use identity type if supported
+            if (t <:< query.types.int) freshIVar(naked.shortString)
+            else if (t <:< query.types.boolean) freshBVar(naked.shortString)
+            else freshIVar(naked.shortString) // TODO: use identity type if supported
         }
       prop2l = prop2l + ((naked, path) -> logic)
       logic
@@ -63,8 +63,9 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
 
   trait Prop {
     val tpe: TypeSym
-    def solveConstraint(theValue: Value, path: Seq[PropKey], env: Env, binding: Map[Value.Naked, Pred], lhs: Expr, rhs: Expr): (Seq[Logic.LBool], Seq[Conflict])
+    def solveConstraint(theValue: Value, path: Seq[PropKey], env: Logic.LBool, binding: Map[Value.Naked, Pred], lhs: Expr, rhs: Expr): (Seq[Logic.LBool], Seq[Conflict])
     // pred.tpe == this.tpe
+    // pred(theValue) --> result
     def toLogic(pred: Expr, theValue: Value): Logic.LBool
   }
 
@@ -73,61 +74,14 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
       case e: CoreExpr => compileB(e, propInLogic(theValue, Seq()))
     }
 
-    override def solveConstraint(theValue: Value, path: Seq[PropKey], env: Env, binding: Map[Value.Naked, Pred], lhs: Expr, rhs: Expr) = (lhs, rhs) match {
+    override def solveConstraint(theValue: Value, path: Seq[PropKey], env: Logic.LBool, binding: Map[Value.Naked, Pred], lhs: Expr, rhs: Expr) = (lhs, rhs) match {
       case (l: CoreExpr, r: CoreExpr) =>
-        // TODO: Move env loic generation to Solver
         // TODO: check base type constraint
         val v = propInLogic(theValue, path)
 
         val logicL = compileB(l, v)
         val logicR = compileB(r, v)
-
-        def getCoreExpr(e: Expr) = e match { case e: CoreExpr => e }
-
-        def buildEnvLogic(vars: Set[Logic.Var], skip: Set[Logic.Var]): Logic.LBool = {
-          (vars -- skip).toSeq.foldLeft((Logic.True: Logic.LBool, skip ++ vars)) {
-            case ((al, askip), vl) =>
-              propFromLogic(vl).fold {
-                // vl represents literal
-                (al, askip)
-              } {
-                case (value, path) =>
-                  // TODO: use correspond Prop to build logic
-                  val pred = path match {
-                    case Seq() => binding(value.naked)
-                    case Seq(k) => binding(value.naked).prop(k)
-                  }
-                  val l = compileB(getCoreExpr(pred.self), vl)
-                  val al2 = al & l & buildEnvLogic(l.vars, askip)
-                  (al2, askip ++ al2.vars)
-              }
-          }._1
-        }
-
-        val envLogic: Logic.LBool = v match {
-          case lvar: Logic.Var =>
-            buildEnvLogic(logicL.vars ++ logicR.vars, Set(lvar))
-          case Logic.BValue(_) | Logic.IValue(_) =>
-            buildEnvLogic(logicL.vars ++ logicR.vars, Set())
-          case other =>
-            throw new RuntimeException(s"$other")
-        }
-
-        def condsToLogic(l: Map[Value.Naked, Pred], not: Boolean) =
-          // TODO: [BUG] check child props
-          l.map {
-            case (value, pred) =>
-              if (not) {
-                this.toLogic(pred.self, value) & !propInLogicB(value, Seq())
-              } else {
-                this.toLogic(pred.self, value) & propInLogicB(value, Seq())
-              }
-          }.reduceOption(_ & _) getOrElse Logic.True
-        val condLogic = condsToLogic(binding.filterKeys(env.conds.map(_.naked)), not = false)
-        val uncondLogic = condsToLogic(binding.filterKeys(env.unconds.map(_.naked)), not = true)
-
-        (Seq((envLogic & condLogic & uncondLogic & logicL) --> logicR), Seq())
-
+        (Seq((env & logicL) --> logicR), Seq())
       case _ =>
         throw new RuntimeException(s"Unsupported pred pair: $lhs, $rhs")
     }
