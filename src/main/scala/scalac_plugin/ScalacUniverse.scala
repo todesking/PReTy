@@ -167,7 +167,13 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
       case sel @ Select(qual, name) =>
         val target = parseExpr(qual)
         val sym = sel.symbol.asTerm
-        AST.Apply(target, sym, valueRepo.newExpr("sel:" + sel.toString, sel.pos, sel.tpe), Seq())
+        val value =
+          if(sym.isStable) {
+            val v = Value.PropValue(target.value.naked, PropKey(name.decoded.toString, sym.owner.asType.tpe, if(sym.isMethod) sym.asMethod.returnType else sym.tpe))
+            valueRepo.setPos(v, sel.pos)
+            v
+          } else valueRepo.newExpr("sel:" + sel.toString, sel.pos, sel.tpe)
+        AST.Apply(target, sym, value, Seq())
       case s @ Super(qual, mix) =>
         AST.Super(valueRepo.newExpr(s.toString, t.pos, t.tpe))
       case i @ Ident(name) =>

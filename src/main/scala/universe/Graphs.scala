@@ -74,9 +74,14 @@ trait Graphs { self: Values with Preds with Templates with Constraints with Envs
         unassignedValues
           .filterNot(hasUnassignedIncomingEdge)
           .foldLeft(binding) { (b, v) =>
-            val preds = incomingEdges(v).map(_.lhs).map(_.reveal(b)).toSeq
+            val incoming = incomingEdges(v)
+            val preds = incoming.map(_.lhs).map(_.reveal(b)).toSeq
             val p = if (preds.isEmpty) w.preds.default(v.tpe) else Pred.and(preds) // TODO: [BUG] Use OR, not AND
-            dprint(s"INFER $v: $p")
+            dprint(s"INFER ${v.shortString}: $p")
+            incoming.zip(preds).foreach {
+              case (i, p) =>
+                dprint("  <-", i.lhs, p)
+            }
             b + (v -> p)
           }
       copy(binding = newBinding)

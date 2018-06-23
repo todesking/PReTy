@@ -95,17 +95,13 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
     }
     def revealOpt(binding: Map[Value.Naked, Pred]): Option[Pred]
     def dependencies: Set[Value]
-    def prop(k: PropKey): UnknownPred =
-      UnknownPred.Ref(this, k)
-    def substitute(mapping: Map[Value, Value]) =
-      UnknownPred.Substitute(mapping, this)
     def tpe: TypeSym
     def &(rhs: UnknownPred): UnknownPred =
       UnknownPred.And(this, rhs)
   }
   object UnknownPred {
     def ref(v: Value, k: PropKey): UnknownPred =
-      Ref(OfValue(v), k)
+      OfValue(v).prop(k)
 
     case class And(lhs: UnknownPred, rhs: UnknownPred) extends UnknownPred {
       require(lhs.tpe <:< rhs.tpe)
@@ -120,29 +116,38 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
       override def tpe = rhs.tpe
     }
 
-    case class Ref(self: UnknownPred, key: PropKey) extends UnknownPred {
+    sealed abstract class Linear extends UnknownPred {
+      def value: Value
+      def prop(k: PropKey): UnknownPred =
+        UnknownPred.Ref(this, value, k)
+      def substitute(mapping: Map[Value, Value]) =
+        UnknownPred.Substitute(mapping, this)
+    }
+
+    case class Ref(self: UnknownPred.Linear, value: Value, key: PropKey) extends Linear {
       override def revealOpt(binding: Map[Value.Naked, Pred]) =
         self.revealOpt(binding)
           .map { pred =>
             pred.prop(key)
           }
-      override def dependencies = self.dependencies
-      override def toString = s"$self.$key"
+      override def dependencies = self.dependencies + value
+      override def toString = s"$self.${key.name}"
       override def tpe = key.tpe
     }
 
-    case class OfValue(value: Value) extends UnknownPred {
+    case class OfValue(value: Value) extends Linear {
       override def revealOpt(binding: Map[Value.Naked, Pred]) = binding.get(value.naked)
       override def dependencies = Set(value)
-      override def toString = s"?($value)"
+      override def toString = s"?${value.shortString}"
       override def tpe = value.tpe
     }
 
-    case class Substitute(mapping: Map[Value, Value], original: UnknownPred) extends UnknownPred {
+    case class Substitute(mapping: Map[Value, Value], original: UnknownPred.Linear) extends Linear {
+      override def value = original.value
       override def revealOpt(binding: Map[Value.Naked, Pred]) =
         original.revealOpt(binding).map(_.substitute(mapping))
       override def dependencies = original.dependencies // TODO: refer mapping.values & original.dependencies
-      override def toString = s"[${mapping.toSeq.map { case (k, v) => s"$k -> $v" }.mkString(", ")}]($original)"
+      override def toString = s"$original[${mapping.toSeq.map { case (k, v) => s"${k.shortString} -> ${v.shortString}" }.mkString(", ")}]"
       override def tpe = original.tpe
     }
   }

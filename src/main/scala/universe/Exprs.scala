@@ -103,7 +103,7 @@ trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros w
       override def tpe = value.tpe
       override def substitute(mapping: Map[Value, Value]) =
         mapping.get(value).map(ValueRef.apply) getOrElse this
-      override def toString = value.toString
+      override def toString = value.shortString
       override def messageString = value.name
     }
 

@@ -33,11 +33,19 @@ trait Values { self: ForeignTypes with Constraints with Preds with Props =>
       override def naked = this
       override val toString = name
     }
-    case class Ref(id: Int, parent: Value) extends Value {
-      override val name = s"ref($parent)#$id"
-      override val shortString = s"#$id=${parent.shortString}"
-      override val tpe = parent.tpe
-      override def naked = parent.naked
+    case class Ref(id: Int, target: Value) extends Value {
+      override val name = s"ref($target)#$id"
+      override val shortString = s"#$id=${target.shortString}"
+      override val tpe = target.tpe
+      override def naked = target.naked
+      override val toString = name
+    }
+    case class PropValue(self: Naked, key: PropKey) extends Naked {
+      require(self.tpe <:< key.targetType)
+      override val name = s"($self).${key.name}"
+      override val shortString = s"${self.shortString}.${key.name}"
+      override val tpe = key.tpe
+      override def naked = this
       override val toString = name
     }
   }
