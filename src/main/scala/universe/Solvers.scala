@@ -18,7 +18,7 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
             case ((al, ac), (l, c)) =>
               (al :+ l, ac ++ c)
           }
-      cs ++ runSMT(ls)
+      cs ++ runSMT(ls, binding)
     }
 
     private[this] def compileConstraint(c: GroundConstraint, binding: Map[Value.Naked, Pred]): (LogicConstraint, Seq[Conflict]) = {
@@ -79,13 +79,13 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
       case None =>
         s"???"
     }
-    private[this] def runSMT(constraints: Seq[LogicConstraint]): Seq[Conflict] = {
+    private[this] def runSMT(constraints: Seq[LogicConstraint], binding: Map[Value.Naked, Pred]): Seq[Conflict] = {
       val smt = SMT.newContext()
       val compiler = new LogicCompiler(smt.ctx)
 
       dprint("SMT Logic:")
       constraints.foreach { c =>
-        def valueString(v: Value) = s"$v: ${c.constraint.binding(v.naked)}"
+        def valueString(v: Value) = s"$v: ${binding(v.naked)}"
         def show(v: Value): String =
           s"${pos(v)} ${valueString(v)}"
 
