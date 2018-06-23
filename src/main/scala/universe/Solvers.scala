@@ -37,9 +37,20 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
                 .solveConstraint(c.focus, path, c.env, binding, l, r)
             }
         }
+      val env = binding.map {
+        case (v, p) =>
+          compileTrivial(v, p.self) getOrElse {
+            world.findProp(v.tpe).toLogic(p.self, v)
+          }
+      }.toSeq
       val logics = xs.flatMap(_._1)
       val conflicts = xs.flatMap(_._2)
-      (LogicConstraint(c, Logic.and(logics).universalQuantifiedForm), conflicts)
+      (LogicConstraint(c, Logic.and(env) & Logic.and(logics).universalQuantifiedForm), conflicts)
+    }
+
+    private[this] def compileTrivial(v: Value.Naked, e: Expr): Option[Logic.LBool] = simplify(e) match {
+      case CoreExpr.BOOL_Lit(b) => Some(Logic.BValue(b))
+      case _ => None
     }
 
     private[this] def solveTrivial(l: Expr, r: Expr): Option[(Seq[Logic.LBool], Seq[Conflict])] = (simplify(l), simplify(r)) match {

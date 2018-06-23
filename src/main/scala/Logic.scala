@@ -25,7 +25,7 @@ object Logic {
     def -->(rhs: LBool): LBool = Implie(this, rhs)
     def <->(rhs: LBool): LBool = BEq(this, rhs)
 
-    def universalQuantifiedForm: Logic =
+    def universalQuantifiedForm: LBool =
       if (vars.isEmpty) this
       else Logic.Forall(this.vars, this)
     override def substitute(f: PartialFunction[Logic, Logic]): LBool = f.lift(this).map(_.asInstanceOf[LBool]) getOrElse substituteChild(f)
