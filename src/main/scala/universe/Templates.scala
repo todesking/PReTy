@@ -27,7 +27,8 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
         propKey.fold {
           graph.subtypeR(ret.substitute(argSub), aRet)
         } { k =>
-          val p = aSelf.prop(k) & self.prop(k)
+          // TODO: if prop(aSelf) <:< (self), p will just aSelf.prop(k)
+          val p = aSelf.prop(k) & self.substitute(argSub).prop(k)
           graph
             .subtypeR(p, aRet)
             .subtypeR(p, ret)

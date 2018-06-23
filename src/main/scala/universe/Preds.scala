@@ -141,7 +141,7 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
     case class Substitute(mapping: Map[Value, Value], original: UnknownPred) extends UnknownPred {
       override def revealOpt(binding: Map[Value.Naked, Pred]) =
         original.revealOpt(binding).map(_.substitute(mapping))
-      override def dependencies = original.dependencies
+      override def dependencies = original.dependencies // TODO: refer mapping.values & original.dependencies
       override def toString = s"[${mapping.toSeq.map { case (k, v) => s"$k -> $v" }.mkString(", ")}]($original)"
       override def tpe = original.tpe
     }

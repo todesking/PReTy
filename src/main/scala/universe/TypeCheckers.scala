@@ -56,7 +56,7 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
           .groupBy(_.focus)
           .toMap
         def str(v: Value): String = {
-          s"${v.shortString} ${cs.get(v) map (_.mkString(", ")) orElse inferred.binding.get(v.naked) getOrElse "???"}"
+          s"${v.toString} ${cs.get(v) map (_.mkString(", ")) orElse inferred.binding.get(v.naked) getOrElse "???"}"
         }
         def show(ast: AST, level: Int): Unit = {
           def p(args: Any*) = dprint(Seq(" " * (level * 2)) ++ args: _*)

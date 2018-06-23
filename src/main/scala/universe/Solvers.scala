@@ -22,8 +22,14 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
     }
 
     private[this] def compileConstraint(c: GroundConstraint, binding: Map[Value.Naked, Pred]): (LogicConstraint, Seq[Conflict]) = {
+      val pcs = propConstraints(c)
+      dprint("Compilation of", pos(c.focus), c.focus.shortString, c)
+      pcs.foreach {
+        case (path, l, r) =>
+          dprint("  ", path.map(_.name).mkString("/", "/", ""), l, "<=", r)
+      }
       val xs =
-        propConstraints(c).map {
+        pcs.map {
           case (path, l, r) =>
             solveTrivial(l, r) getOrElse {
               world
@@ -67,13 +73,13 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
       gather(l, r, Seq())
     }
 
+    private[this] def pos(v: Value) = valueRepo.getPos(v) match {
+      case Some(p) =>
+        s"${query.lineNum(p)}:${query.columnNum(p)}"
+      case None =>
+        s"???"
+    }
     private[this] def runSMT(constraints: Seq[LogicConstraint]): Seq[Conflict] = {
-      def pos(v: Value) = valueRepo.getPos(v) match {
-        case Some(p) =>
-          s"${query.lineNum(p)}:${query.columnNum(p)}"
-        case None =>
-          s"???"
-      }
       val smt = SMT.newContext()
       val compiler = new LogicCompiler(smt.ctx)
 
@@ -83,16 +89,16 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
         def show(v: Value): String =
           s"${pos(v)} ${valueString(v)}"
 
-        dprint(show(c.constraint.focus))
+        dprint(s"${pos(c.constraint.focus)} ${c.constraint.focus}}")
         c.constraint.env.conds.foreach { v =>
           dprint("  COND:", show(v))
         }
         c.constraint.env.unconds.foreach { v =>
           dprint("  UNCOND:", show(v))
         }
-        dprint("  =>", c.constraint)
-        dprint("  =>", c.logic)
-        dprint("  =>", compiler.compileBoolean(c.logic))
+        dprint("  Constraint:", c.constraint)
+        dprint("  Logic:", c.logic)
+        dprint("  Compiled:", compiler.compileBoolean(c.logic))
       }
 
       val conflicts =

@@ -11,9 +11,20 @@ class C @refine("_: {v: _ == x}") (x: Int) {
 // class C2 @refine("v: _ < 10") (@refine("v != 2") val v: Int) {
 // }
 
-trait T
+
+abstract class  A {
+  val v: Int = 0
+}
 
 object Ctor {
+  @refine("c: {v: _ == 100}")
+  def a(c: C): Unit = {
+    assert(c.v == 100)
+  }
+  @refine("c: {v: _ == 100}")
+  def b(c: A): Unit = {
+    assert(c.v == 100)
+  }
   def foo(): Unit = {
     @refine("_: {v: _ == 1}")
     val c1 = new C(1)
