@@ -46,8 +46,19 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
               world.findProp(query.types.boolean).toLogic(pred.self, value) & propInLogicB(value, Seq())
             }
         }.reduceOption(_ & _) getOrElse Logic.True
-      val condLogic = condsToLogic(binding.filterKeys(c.env.conds.map(_.naked)), not = false)
-      val uncondLogic = condsToLogic(binding.filterKeys(c.env.unconds.map(_.naked)), not = true)
+      val condPreds = binding.filterKeys(c.env.conds.map(_.naked))
+      val uncondPreds = binding.filterKeys(c.env.unconds.map(_.naked))
+      val condLogic = condsToLogic(condPreds, not = false)
+      val uncondLogic = condsToLogic(uncondPreds, not = true)
+
+      condPreds.foreach {
+        case (v, p) =>
+          dprint("  Cond:", v, p)
+      }
+      uncondPreds.foreach {
+        case (v, p) =>
+          dprint("  Uncond:", v, p)
+      }
 
       val xs =
         pcs.map {
