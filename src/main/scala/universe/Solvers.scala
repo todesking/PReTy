@@ -22,7 +22,7 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
     }
 
     private[this] def compileConstraint(c: GroundConstraint, binding: Map[Value.Naked, Pred]): (LogicConstraint, Seq[Conflict]) = {
-      val pcs = propConstraints(c)
+      val pcs = propConstraints(c).map { case (path, l, r) => (path, simplify(l), simplify(r)) }
       dprint("Compilation of", pos(c.focus), c.focus.shortString, c)
       pcs.foreach {
         case (path, l, r) =>
@@ -31,8 +31,9 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
 
       val env = Logic.and(binding.map {
         case (v, p) =>
-          compileTrivial(v, p.self) getOrElse {
-            world.findProp(v.tpe).toLogic(p.self, v)
+          val e = simplify(p.self)
+          compileTrivial(v, e) getOrElse {
+            world.findProp(v.tpe).toLogic(e, v)
           }
       }.toSeq)
 
@@ -75,7 +76,7 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
       (LogicConstraint(c, Logic.and(logics).universalQuantifiedForm), conflicts)
     }
 
-    private[this] def compileTrivial(v: Value.Naked, e: Expr): Option[Logic.LBool] = simplify(e) match {
+    private[this] def compileTrivial(v: Value.Naked, e: Expr): Option[Logic.LBool] = e match {
       case CoreExpr.BOOL_Lit(b) => Some(Logic.BValue(b))
       case _ => None
     }
