@@ -98,6 +98,10 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
     def tpe: TypeSym
     def &(rhs: UnknownPred): UnknownPred =
       UnknownPred.And(this, rhs)
+    def prop(k: PropKey): UnknownPred =
+      UnknownPred.Ref(this, k)
+    def substitute(mapping: Map[Value, Value]): UnknownPred =
+      UnknownPred.Substitute(mapping, this)
   }
   object UnknownPred {
     def ref(v: Value, k: PropKey): UnknownPred =
@@ -116,34 +120,25 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
       override def tpe = rhs.tpe
     }
 
-    sealed abstract class Linear extends UnknownPred {
-      def value: Value
-      def prop(k: PropKey): UnknownPred =
-        UnknownPred.Ref(this, value, k)
-      def substitute(mapping: Map[Value, Value]) =
-        UnknownPred.Substitute(mapping, this)
-    }
-
-    case class Ref(self: UnknownPred.Linear, value: Value, key: PropKey) extends Linear {
+    case class Ref(self: UnknownPred, key: PropKey) extends UnknownPred {
       override def revealOpt(binding: Map[Value.Naked, Pred]) =
         self.revealOpt(binding)
           .map { pred =>
             pred.prop(key)
           }
-      override def dependencies = self.dependencies + value
+      override def dependencies = self.dependencies
       override def toString = s"$self.${key.name}"
       override def tpe = key.tpe
     }
 
-    case class OfValue(value: Value) extends Linear {
+    case class OfValue(value: Value) extends UnknownPred {
       override def revealOpt(binding: Map[Value.Naked, Pred]) = binding.get(value.naked)
       override def dependencies = Set(value)
       override def toString = s"?${value.shortString}"
       override def tpe = value.tpe
     }
 
-    case class Substitute(mapping: Map[Value, Value], original: UnknownPred.Linear) extends Linear {
-      override def value = original.value
+    case class Substitute(mapping: Map[Value, Value], original: UnknownPred) extends UnknownPred {
       override def revealOpt(binding: Map[Value.Naked, Pred]) =
         original.revealOpt(binding).map(_.substitute(mapping))
       override def dependencies = original.dependencies // TODO: refer mapping.values & original.dependencies
