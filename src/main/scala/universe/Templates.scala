@@ -119,7 +119,7 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
             }
         }
       val propKey =
-        if (query.isStable(f)) Some(world.propKey(query.thisType(f), query.name(f)).getOrElse { throw new RuntimeException(s"PropKey not found: ${query.thisType(f)}.${query.name(f)}") })
+        if (query.paramss(f).isEmpty) world.propKey(query.thisType(f), query.name(f))
         else None
       Template(fv.self, fv.ret, fv.paramss, bindings, makro, propKey)
     }

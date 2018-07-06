@@ -21,7 +21,7 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
     // TODO: check prop consistency(where?)
     def custom(self: Expr): Pred.Custom =
       custom(Some(self), Map())
-    Pred.Custom(this, Some(self), Map())
+
     // TODO: self: Expr
     def custom(self: Option[Expr], props: Map[PropKey, Pred]): Pred.Custom =
       Pred.Custom(this, self, props)

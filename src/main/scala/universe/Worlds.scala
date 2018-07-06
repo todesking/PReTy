@@ -57,8 +57,11 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
   class World(
     globalMakros: Map[String, Macro],
     customProps: Map[TypeSym, Prop],
-    customTemplates: Map[DefSym, MemberDef]
+    customMembers: Map[DefSym, MemberDef]
   ){
+    private[this] val templateRepo = new TemplateRepo(this)
+
+    private[this] val valueRepo = new ValueRepo
     private[this] val defaultPreds = Cache[TypeSym, Pred] { t =>
       val keys = query.stableValueMembers(t).map { f =>
         propKey(t, query.name(f)) getOrElse {
@@ -68,16 +71,18 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
       Pred.Default(t, CoreExpr.True, keys, k => defaultPropPred(t,k))
     }
     private[this] val propKeyss = Cache[TypeSym, Map[String, PropKey]] { tpe =>
-      ???
+      query.stableValueMembers(tpe).map { f =>
+        query.name(f) -> PropKey(query.name(f), query.thisType(f), query.returnType(f))
+      }.toMap
     }
     private[this] val templates = Cache[DefSym, Template] { f =>
-      ???
+      templateRepo.get(f)
     }
     private[this] val localTemplates = Cache1[DefSym, Env, Template] { (f, env) =>
-      ???
+      templateRepo.registerLocal(f, env)
     }
     private[this] val functionValuess = Cache[DefSym, FunctionValue] { f =>
-      ???
+      valueRepo.functionValue(f)
     }
     private[this] val props = Cache[TypeSym, Prop] { tpe =>
       // TODO: [BUG] types are partial order. need tsort
@@ -99,7 +104,10 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
     def prop(tpe: TypeSym): Prop = props(tpe)
     def makro(name: String): Option[Macro] = globalMakros.get(name)
     def defaultPred(t: TypeSym): Pred = defaultPreds(t)
-    def memberMakro(t: TypeSym, name: String, argTypes: Seq[Seq[TypeSym]]): Option[Macro] = ???
+    def memberMakro(t: TypeSym, name: String, argTypes: Seq[Seq[TypeSym]]): Option[Macro] =
+      Some(query.lookupMember(t, name, query.types.any, argTypes)).flatMap { f =>
+        template(f).makro
+      }
 
     private[this] def defaultPropPred(tpe: TypeSym, key: PropKey): Pred = {
       query.stableValueMembers(tpe).find { f => query.name(f) == key.name }.map { f =>

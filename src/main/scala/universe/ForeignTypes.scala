@@ -44,6 +44,7 @@ trait ForeignTypes {
     def baseTypes(t: TypeSym): Seq[TypeSym]
 
     def lookupMembers(self: TypeSym, name: String, ret: TypeSym, paramss: Seq[Seq[TypeSym]]): Seq[DefSym]
+    // TODO: Option[DefSym]
     def lookupMember(self: TypeSym, name: String, ret: TypeSym, paramss: Seq[Seq[TypeSym]]): DefSym = {
       val ms = lookupMembers(self, name, ret, paramss)
       val pat = s"$self.$name ${paramss.map(_.mkString("(", ", ", ")")).mkString("")}: $ret, ${ms.mkString(", ")}"

@@ -50,6 +50,7 @@ trait Values { self: ForeignTypes with Constraints with Preds with Props =>
     }
   }
 
+  // TODO: really need param name?
   case class FunctionValue(self: Value, ret: Value, paramss: Seq[Seq[(String, Value)]])
 
   class ValueRepo {
