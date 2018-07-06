@@ -110,11 +110,12 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
 
   }
 
-  override def toAST(valueRepo: ValueRepo, t: Tree): Seq[AST.CTODef] =
-    new TreeParser(valueRepo).parseTop(t)
+  override def toAST(world: World, t: Tree): Seq[AST.CTODef] =
+    new TreeParser(world).parseTop(t)
 
-  class TreeParser(valueRepo: ValueRepo) {
+  class TreeParser(world: World) {
     import global.{ Tree => _, _ }
+    private[this] def valueRepo = world.values
     def parseTop(t: Tree): Seq[AST.CTODef] = t match {
       case PackageDef(pid, stats) =>
         stats.flatMap(parseTop)
@@ -169,7 +170,11 @@ class ScalacUniverse[G <: Global](val global: G, debug: Boolean) extends Univers
         val sym = sel.symbol.asTerm
         val value =
           if(sym.isStable) {
-            val v = Value.PropValue(target.value.naked, PropKey(name.decoded.toString, sym.owner.asType.tpe, if(sym.isMethod) sym.asMethod.returnType else sym.tpe))
+            val k = world.propKey(sym.owner.asType.tpe, name.decoded.toString) getOrElse {
+              // TODO: safe error handling
+              throw new RuntimeException(s"Unknown prop key: ${sym.owner.asType.tpe}.${name.decoded.toString}")
+            }
+            val v = Value.PropValue(target.value.naked, k)
             valueRepo.setPos(v, sel.pos)
             v
           } else valueRepo.newExpr("sel:" + sel.toString, sel.pos, sel.tpe)

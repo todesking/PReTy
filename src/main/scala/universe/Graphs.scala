@@ -76,7 +76,7 @@ trait Graphs { self: Values with Preds with Templates with Constraints with Envs
           .foldLeft(binding) { (b, v) =>
             val incoming = incomingEdges(v)
             val preds = incoming.map(_.lhs).map(_.reveal(b)).toSeq
-            val p = if (preds.isEmpty) w.preds.default(v.tpe) else Pred.and(preds) // TODO: [BUG] Use OR, not AND
+            val p = if (preds.isEmpty) w.defaultPred(v.tpe) else Pred.and(preds) // TODO: [BUG] Use OR, not AND
             dprint(s"INFER ${v.shortString}: $p")
             incoming.zip(preds).foreach {
               case (i, p) =>

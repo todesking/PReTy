@@ -18,7 +18,7 @@ trait Universe extends AnyRef
   with TypeCheckers
   with Debugging {
 
-  def toAST(valueRepo: ValueRepo, t: Tree): Seq[AST.CTODef]
+  def toAST(world: World, t: Tree): Seq[AST.CTODef]
   def reportError(pos: Pos, msg: String): Unit
 
   def checkRefinements(root: Tree): Unit = {
@@ -30,7 +30,7 @@ trait Universe extends AnyRef
         s"???"
     }
 
-    val ctos = toAST(world.values, root)
+    val ctos = toAST(world, root)
     val checker = new TypeChecker(world)
     ctos.foreach { cto =>
       val conflicts = checker.check(cto)

@@ -93,7 +93,7 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
               p("Else")
               show(el, level + 1)
             case FunDef(sym, body) =>
-              val t = world.templates.get(sym)
+              val t = world.template(sym)
               p("FunDef", sym)
               t.argss.foreach { args =>
                 args.foreach {
@@ -103,7 +103,7 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
               }
               body.foreach(show(_, level + 1))
             case ValDef(sym, body) =>
-              val t = world.templates.get(sym)
+              val t = world.template(sym)
               p("ValDef", sym, str(t.ret))
               body.foreach(show(_, level + 1))
           }
@@ -123,7 +123,7 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
 
       case AST.ValDef(sym, body) =>
         // TODO: Use default binding if public
-        val template = if (inLocal) world.templates.registerLocal(sym, graph.currentEnv) else world.templates.get(sym)
+        val template = if (inLocal) world.localTemplate(sym, graph.currentEnv) else world.template(sym)
         val g = if (inLocal) graph.let(query.name(sym), template.ret) else graph
         // TODO: distinct local val and member
         body.fold(g) { b =>
@@ -137,7 +137,7 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
           graph
         } else {
           // TODO: Use default binding if public
-          val template = if (inLocal) world.templates.registerLocal(sym, graph.currentEnv) else world.templates.get(sym)
+          val template = if (inLocal) world.localTemplate(sym, graph.currentEnv) else world.template(sym)
           // TODO: Handle local def
           body.fold(graph) { b =>
             val base = buildGraph(graph, b, true)
@@ -153,12 +153,12 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
           .popEnv()
 
       case AST.This(value) =>
-        graph.bind(value -> world.preds.default(value.tpe))
+        graph.bind(value -> world.defaultPred(value.tpe))
 
       case AST.Apply(self, sym, value, argss) =>
         val g = graph.pushEnv()
         // TODO: register template.binding (or make global binding repo) for foreign members
-        val template = world.templates.get(sym)
+        val template = world.template(sym)
         val g1 = buildGraph(g.template(template), self, inLocal)
         val g2 = argss.flatten.foldLeft(g1) { (g, a) => buildGraph(g, a, inLocal) }
         template.apply(g2, self.value, value, argss.map(_.map(_.value)))
@@ -168,7 +168,7 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
         graph
 
       case AST.PackageRef(sym, value) =>
-        graph.bind(value -> world.preds.default(value.tpe))
+        graph.bind(value -> world.defaultPred(value.tpe))
 
       case AST.Super(value) =>
         // TODO: we can do something here
@@ -181,7 +181,7 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
         graph
 
       case AST.UnitLiteral(value) =>
-        graph.bind(value -> world.preds.default(value.tpe))
+        graph.bind(value -> world.defaultPred(value.tpe))
 
       case AST.If(value, cond, thenp, elsep) =>
         val g1 = buildGraph(graph.pushEnv, cond, true).popEnv
@@ -190,7 +190,7 @@ trait TypeCheckers { self: ForeignTypes with Values with Templates with Worlds w
         g3
 
       case AST.New(v) =>
-        graph.bind(v -> world.preds.default(v.tpe))
+        graph.bind(v -> world.defaultPred(v.tpe))
     }
   }
 }

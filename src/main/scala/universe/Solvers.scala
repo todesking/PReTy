@@ -33,7 +33,7 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
         case (v, p) =>
           val e = simplify(p.self)
           compileTrivial(v, e) getOrElse {
-            world.findProp(v.tpe).toLogic(e, v)
+            world.prop(v.tpe).toLogic(e, v)
           }
       }.toSeq)
 
@@ -42,9 +42,9 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
         l.map {
           case (value, pred) =>
             if (not) {
-              world.findProp(query.types.boolean).toLogic(pred.self, value) & !propInLogicB(value, Seq())
+              world.prop(query.types.boolean).toLogic(pred.self, value) & !propInLogicB(value, Seq())
             } else {
-              world.findProp(query.types.boolean).toLogic(pred.self, value) & propInLogicB(value, Seq())
+              world.prop(query.types.boolean).toLogic(pred.self, value) & propInLogicB(value, Seq())
             }
         }.reduceOption(_ & _) getOrElse Logic.True
       val condPreds = binding.filterKeys(c.env.conds.map(_.naked))
@@ -66,7 +66,7 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
           case (path, l, r) =>
             solveTrivial(l, r) getOrElse {
               world
-                .findProp(path.lastOption.map(_.tpe) getOrElse c.tpe)
+                .prop(path.lastOption.map(_.tpe) getOrElse c.tpe)
                 .solveConstraint(c.focus, path, env & condLogic & uncondLogic, binding, l, r)
             }
         }

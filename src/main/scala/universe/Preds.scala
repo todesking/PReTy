@@ -1,7 +1,5 @@
 package com.todesking.prety.universe
 
-import com.todesking.prety.Lang
-
 trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs with Conflicts with Worlds with Templates with Debugging =>
   // TODO: Expr -> Expr.Boolean
   abstract class Pred {
@@ -18,6 +16,15 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
     def customPropKeys: Set[PropKey]
     def customized(k: PropKey): Boolean =
       customPropKeys.contains(k)
+
+    // TODO: check requirements
+    // TODO: check prop consistency(where?)
+    def custom(self: Expr): Pred.Custom =
+      custom(Some(self), Map())
+    Pred.Custom(this, Some(self), Map())
+    // TODO: self: Expr
+    def custom(self: Option[Expr], props: Map[PropKey, Pred]): Pred.Custom =
+      Pred.Custom(this, self, props)
 
     // where this.tpe <:< tpe
     // where _.tpe <:< tpe
@@ -60,8 +67,8 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
       ps.reduce(_ & _)
     }
 
-    case class Default(tpe: TypeSym, self: Expr, propKeys: Set[PropKey], repo: PredRepo) extends Pred {
-      override def prop(key: PropKey) = repo.defaultProp(tpe, key)
+    case class Default(tpe: TypeSym, self: Expr, propKeys: Set[PropKey], defaultPred: PropKey => Pred) extends Pred {
+      override def prop(key: PropKey) = defaultPred(key)
       override def customPropKeys = Set()
     }
     case class Custom(original: Pred, customSelf: Option[Expr], customProps: Map[PropKey, Pred]) extends Pred {
@@ -147,58 +154,4 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
     }
   }
 
-  class PredRepo(world: World) {
-    private[this] var defaults = Map.empty[TypeSym, Pred]
-
-    def default(tpe: TypeSym): Pred = defaults.get(tpe) getOrElse {
-      val pred = loadPred(tpe)
-      defaults += (tpe -> pred)
-      pred
-    }
-
-    def defaultProp(tpe: TypeSym, key: PropKey): Pred = {
-      query.stableValueMembers(tpe).find { f => query.name(f) == key.name }.map { f =>
-        val t = world.templates.get(f)
-        t.bindings(t.ret)
-      } getOrElse {
-        throw new AssertionError(s"Can't find prop $key in $tpe")
-      }
-    }
-
-    def custom(tpe: TypeSym, self: Option[Expr], props: Map[PropKey, Pred]): Pred = {
-      // TODO: check requirements
-      // TODO: check prop consistency(where?)
-      Pred.Custom(default(tpe), self, props)
-    }
-
-    def compile(tpe: TypeSym, ast: Lang.Pred, env: Env): Pred = {
-      custom(
-        tpe,
-        ast.self.map(Expr.compile(world, _, env, tpe)),
-        ast.props.map {
-          case (name, p) =>
-            val key = world.findPropKey(name, tpe)
-            key -> compile(key.tpe, p, env)
-        })
-    }
-
-    def exactInt(v: Int): Pred =
-      Pred.Custom(
-        default(query.types.int),
-        Some(CoreExpr.INT_EQ(CoreExpr.TheValue(query.types.int), CoreExpr.INT_Lit(v))),
-        Map())
-
-    def exactBoolean(v: Boolean): Pred =
-      Pred.Custom(
-        default(query.types.boolean),
-        Some(CoreExpr.BOOL_EQ(CoreExpr.TheValue(query.types.boolean), CoreExpr.BOOL_Lit(v))),
-        Map())
-
-    private[this] def loadPred(tpe: TypeSym): Pred = {
-      val keys = query.stableValueMembers(tpe).map { f =>
-        world.findPropKey(query.name(f), tpe)
-      }.toSet
-      Pred.Default(tpe, CoreExpr.True, keys, this)
-    }
-  }
 }

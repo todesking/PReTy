@@ -4,69 +4,142 @@ import com.todesking.prety.Lang
 import scala.reflect.runtime.{universe => ru}
 
 trait Worlds { self: ForeignTypes with Values with Templates with Props with Exprs with Envs with Preds with Macros with Debugging=>
-  class MemberEnv {
-    private[this] var entities = Map.empty[TypeSym, Map[String, PropKey]]
-
-    def propKey(tpe: TypeSym, name: String): PropKey =
-      propKeys(tpe)(name)
-
-    def propKeys(tpe: TypeSym): Map[String, PropKey] =
-      entities.get(tpe) getOrElse {
-        entities = entities + (tpe -> findPropKeys(tpe))
-        entities(tpe)
-      }
-
-    private[this] def findPropKeys(tpe: TypeSym): Map[String, PropKey] = {
-      query.stableValueMembers(tpe).map { mem =>
-        val name = query.name(mem)
-        name -> PropKey(name, tpe, query.returnType(mem))
-      }.toMap
-    }
-
-    def add(tpe: TypeSym, name: String, key: PropKey): Unit = {
-      entities = entities + (tpe -> (propKeys(tpe) + (name -> key)))
+  class Cache[K, V](calc: K => V) {
+    private[this] var cache = Map.empty[K, V]
+    def apply(k: K): V = cache.get(k) getOrElse {
+      val v = calc(k)
+      cache = cache + (k -> v)
+      v
     }
   }
-  class World() {
-    private[this] def nf(kind: String, key: String) =
-      throw new RuntimeException(s"$kind $key not found")
+  object Cache {
+    def apply[K, V](f: K => V): Cache[K, V] = new Cache(f)
+  }
+  class Cache1[K, A1, V](calc: (K, A1) => V) {
+    private[this] var cache = Map.empty[K, V]
+    def apply(k: K, a1: A1): V = cache.get(k) getOrElse {
+      val v = calc(k, a1)
+      cache = cache + (k -> v)
+      v
+    }
+  }
+  object Cache1 {
+    def apply[K, A1, V](f: (K, A1) => V): Cache1[K, A1, V] = new Cache1(f)
+  }
 
-    private[this] var props = Map.empty[TypeSym, Prop]
-    private[this] var macros = Map.empty[String, Macro]
-    private[this] val memberEnv = new MemberEnv
+  class PredQuery(world: World) {
+    def compile(tpe: TypeSym, ast: Lang.Pred, env: Env): Pred = {
+      world.defaultPred(tpe).custom(
+        ast.self.map(Expr.compile(world, _, env, tpe)),
+        ast.props.map {
+          case (name, p) =>
+            val key = world.propKey(tpe, name) getOrElse {
+              throw new RuntimeException(s"Property $name not found in $tpe")
+            }
+            key -> compile(key.tpe, p, env)
+        })
+    }
+
+    def exactInt(v: Int): Pred =
+      world.defaultPred(query.types.int).custom(
+        CoreExpr.INT_EQ(CoreExpr.TheValue(query.types.int), CoreExpr.INT_Lit(v))
+      )
+
+    def exactBoolean(v: Boolean): Pred =
+      world.defaultPred(query.types.boolean).custom(
+        CoreExpr.BOOL_EQ(CoreExpr.TheValue(query.types.boolean), CoreExpr.BOOL_Lit(v))
+      )
+  }
+
+  object Facade {
+  }
+
+  class World(
+    globalMakros: Map[String, Macro],
+    customProps: Map[TypeSym, Prop],
+    customTemplates: Map[DefSym, MemberDef]
+  ){
+    private[this] val defaultPreds = Cache[TypeSym, Pred] { t =>
+      val keys = query.stableValueMembers(t).map { f =>
+        propKey(t, query.name(f)) getOrElse {
+          throw new AssertionError(s"Can't find pred key for stable member $f")
+        }
+      }.toSet
+      Pred.Default(t, CoreExpr.True, keys, k => defaultPropPred(t,k))
+    }
+    private[this] val propKeyss = Cache[TypeSym, Map[String, PropKey]] { tpe =>
+      ???
+    }
+    private[this] val templates = Cache[DefSym, Template] { f =>
+      ???
+    }
+    private[this] val localTemplates = Cache1[DefSym, Env, Template] { (f, env) =>
+      ???
+    }
+    private[this] val functionValuess = Cache[DefSym, FunctionValue] { f =>
+      ???
+    }
+    private[this] val props = Cache[TypeSym, Prop] { tpe =>
+      // TODO: [BUG] types are partial order. need tsort
+      customProps.values.filter(tpe <:< _.tpe).toSeq.sortWith { (a, b) => a.tpe <:< b.tpe }.headOption getOrElse {
+        // TODO: return default prop
+        throw new RuntimeException(s"Property for $tpe not found: env=${customProps.values.mkString(", ")}")
+      }
+    }
+
+    val values = new ValueRepo
+
+    val preds = new PredQuery(this)
+
+    // def propKeys(t: TypeSym): Set[PropKey] = propKeyss(t)
+    def propKey(t: TypeSym, name: String): Option[PropKey] = propKeyss(t).get(name)
+    def template(f: DefSym): Template = templates(f)
+    def localTemplate(f: DefSym, env: Env): Template = localTemplates(f, env)
+    def functionValue(f: DefSym): FunctionValue = functionValuess(f)
+    def prop(tpe: TypeSym): Prop = props(tpe)
+    def makro(name: String): Option[Macro] = globalMakros.get(name)
+    def defaultPred(t: TypeSym): Pred = defaultPreds(t)
+    def memberMakro(t: TypeSym, name: String, argTypes: Seq[Seq[TypeSym]]): Option[Macro] = ???
+
+    private[this] def defaultPropPred(tpe: TypeSym, key: PropKey): Pred = {
+      query.stableValueMembers(tpe).find { f => query.name(f) == key.name }.map { f =>
+        val t = template(f)
+        t.bindings(t.ret)
+      } getOrElse {
+        throw new AssertionError(s"Can't find prop $key in $tpe")
+      }
+    }
+  }
+
+  case class MemberDef(
+    paramNames: Seq[Seq[String]],
+    predAST: Map[String, Lang.Pred],
+    makroAST: Option[Lang.Expr]
+  )
+
+  class Configuration {
+    import scala.collection.{mutable => mu}
+    private[this] val props = mu.Map.empty[TypeSym, Prop]
+    private[this] val makros = mu.Map.empty[String, Macro]
+    private[this] val memberDefs = mu.Map.empty[DefSym, MemberDef]
+
+    def newWorld(): World = new World(
+      makros.toMap,
+      props.toMap,
+      memberDefs.toMap
+    )
 
     def registerProp(p: Prop): Unit = {
       if (props.contains(p.tpe))
         throw new RuntimeException(s"Prop conflict: $p")
-      props = props + (p.tpe -> p)
+      props +=  (p.tpe -> p)
     }
 
     def registerMacro(m: Macro): Unit = {
-      if(macros.contains(m.name))
+      if(makros.contains(m.name))
         throw new RuntimeException(s"Name conflict: ${m.name}")
-      macros = macros + (m.name -> m)
+      makros += (m.name -> m)
     }
-
-    def findMethodMacro(selfT: TypeSym, name: String, argss: Seq[Seq[TypeSym]]): Macro = {
-      val f = query.lookupMember(selfT, name, query.types.any, argss)
-      val t = templates.get(f)
-      t.makro getOrElse { throw new RuntimeException(s"$selfT.${query.name(f)}${argss.map(_.mkString("(", ", ", ")"))} can't use in expr") }
-    }
-
-    def findMacro(name: String): Macro = macros.get(name) getOrElse nf("Macro", name)
-
-    def findPropKey(name: String, targetType: TypeSym): PropKey =
-        memberEnv.propKey(targetType, name)
-
-    // TODO: [BUG] types are partial order. need tsort
-    def findProp(tpe: TypeSym): Prop =
-      props.values.filter(tpe <:< _.tpe).toSeq.sortWith { (a, b) => a.tpe <:< b.tpe }.headOption getOrElse {
-        throw new RuntimeException(s"Property for $tpe not found: props=${props.values.mkString(", ")}")
-      }
-
-    val templates = new TemplateRepo(this)
-    val values = new ValueRepo
-    val preds = new PredRepo(this)
 
     def registerMember(selfName: String, methodName: String, retName: String, paramNames: Seq[Seq[(String, String)]], src: String): Unit = {
       val selfT = query.types.fromName(selfName)
@@ -76,32 +149,33 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
     }
 
     def registerMember(selfT: TypeSym, methodName: String, retT: TypeSym, paramss: Seq[Seq[(String, TypeSym)]], srcs: Seq[String], simples: Seq[String]): Unit = {
-      // TODO: Integrate with template.freshTemplate()
       dprint(s"registering ${selfT}.$methodName ${paramss.map(_.map {case (k,v) => s"$k: $v" }).mkString("(", ", ", ")")} ${srcs.mkString(", ")}|${simples.mkString(", ")}")
-      val f = query.lookupMember(selfT, methodName, retT, paramss.map(_.map(_._2)))
-      val fv = values.functionValue(f)
-      val name2value = paramss.flatten.map(_._1).zip(fv.paramss.flatten.map(_._2)).toMap + ("this" -> fv.self) + ("_" -> fv.ret)
-      val name2type = paramss.flatten.toMap + ("this" -> selfT) + ("_" -> fv.ret.tpe)
       if (simples.nonEmpty && srcs.nonEmpty) throw new RuntimeException("@refine and @refine.simple is exclusive")
       if (simples.size > 1) throw new RuntimeException("Multiple @refine.simple")
-      val defs =
+
+      // TODO: Integrate with template.freshTemplate()
+
+      val f = query.lookupMember(selfT, methodName, retT, paramss.map(_.map(_._2)))
+      val predAST =
         if(simples.isEmpty) Lang.parse(srcs)
           else Lang.parseSingle(s"_: @core.eq(_, ${simples.head})")
-      val env = Env(name2value)
-      val value2pred =
-        name2value.map { case (k, v) => name2value(k) -> preds.default(v.tpe) }.toMap ++ defs.map {
-              case (name, d) =>
-                name2value(name) -> preds.compile(name2type(name), d, env)
-            }
-      val makro = simples.headOption.map { s =>
-        Macro.method(this, methodName, s, retT, paramss)
-      }
+      val makroAST = simples.headOption.map(Lang.parseExpr)
+      memberDefs += (f -> MemberDef(paramss.map(_.map(_._1)), predAST, makroAST))
+      // val env = Env(name2value)
+      // val value2pred =
+      //   name2value.map { case (k, v) => name2value(k) -> preds.default(v.tpe) }.toMap ++ defs.map {
+      //         case (name, d) =>
+      //           name2value(name) -> preds.compile(name2type(name), d, env)
+      //       }
+      // val makro = simples.headOption.map { s =>
+      //   Macro.method(this, methodName, s, retT, paramss)
+      // }
 
-      // TODO: dup to Templates/buildTemplate
-      val propKey =
-        if(query.isStable(f)) Some(PropKey(query.name(f), query.thisType(f), query.returnType(f)))
-        else None
-      templates.register(f, value2pred, makro, propKey)
+      // // TODO: dup to Templates/buildTemplate
+      // val propKey =
+      //   if(query.isStable(f)) Some(PropKey(query.name(f), query.thisType(f), query.returnType(f)))
+      //   else None
+      // templates.register(f, value2pred, makro, propKey)
     }
 
     def registerMembers(proxy: ru.TypeTag[_]): Unit = {
@@ -155,19 +229,43 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
     }
   }
 
+  class MemberEnv {
+    private[this] var entities = Map.empty[TypeSym, Map[String, PropKey]]
+
+    def propKey(tpe: TypeSym, name: String): PropKey =
+      propKeys(tpe)(name)
+
+    def propKeys(tpe: TypeSym): Map[String, PropKey] =
+      entities.get(tpe) getOrElse {
+        entities = entities + (tpe -> findPropKeys(tpe))
+        entities(tpe)
+      }
+
+    private[this] def findPropKeys(tpe: TypeSym): Map[String, PropKey] = {
+      query.stableValueMembers(tpe).map { mem =>
+        val name = query.name(mem)
+        name -> PropKey(name, tpe, query.returnType(mem))
+      }.toMap
+    }
+
+    def add(tpe: TypeSym, name: String, key: PropKey): Unit = {
+      entities = entities + (tpe -> (propKeys(tpe) + (name -> key)))
+    }
+  }
+
   object World {
     def buildDefault(): World = {
-      val w = new World
-      w.registerProp(new BooleanProp)
-      w.registerProp(new IntProp)
-      w.registerProp(new AnyRefProp)
+      val conf = new Configuration
+      conf.registerProp(new BooleanProp)
+      conf.registerProp(new IntProp)
+      conf.registerProp(new AnyRefProp)
 
-      w.registerMacro(CoreLib)
+      conf.registerMacro(CoreLib)
 
-      w.registerMembers(ru.typeTag[BooleanProxy])
-      w.registerMembers(ru.typeTag[IntProxy])
+      conf.registerMembers(ru.typeTag[BooleanProxy])
+      conf.registerMembers(ru.typeTag[IntProxy])
 
-      w
+      conf.newWorld()
     }
 
     import scala.language.reflectiveCalls

@@ -110,7 +110,7 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
           // If local member has no refinement spec, let infer it later.
           Map.empty[Value, Pred]
         } else {
-          (Seq(fv.ret, fv.self) ++ fv.paramss.flatten.map(_._2)).map { v => v -> world.preds.default(v.tpe) }.toMap ++ preds
+          (Seq(fv.ret, fv.self) ++ fv.paramss.flatten.map(_._2)).map { v => v -> world.defaultPred(v.tpe) }.toMap ++ preds
             .map {
               case (k, v) =>
                 val target = if (k == "_") fv.ret else env.findValue(k)
@@ -119,7 +119,7 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
             }
         }
       val propKey =
-        if (query.isStable(f)) Some(PropKey(query.name(f), query.thisType(f), query.returnType(f)))
+        if (query.isStable(f)) Some(world.propKey(query.thisType(f), query.name(f)).getOrElse { throw new RuntimeException(s"PropKey not found: ${query.thisType(f)}.${query.name(f)}") })
         else None
       Template(fv.self, fv.ret, fv.paramss, bindings, makro, propKey)
     }

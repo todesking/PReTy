@@ -34,10 +34,10 @@ trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros w
       case E.Op(lhs, op, rhs) =>
         val l = compile(w, lhs, env, theType, sub)
         val r = compile(w, rhs, env, theType, sub)
-        val m = w.findMethodMacro(l.tpe, op, Seq(Seq(r.tpe)))
+        val m = w.memberMakro(l.tpe, op, Seq(Seq(r.tpe))).getOrElse { throw new RuntimeException(s"Member macro not found: ${l.tpe}.$op(${r.tpe})") }
         m.apply(Some(l), Seq(r), env)
       case E.MacroRef(name) =>
-        Left(w.findMacro(name))
+        Left(w.makro(name).getOrElse { throw new RuntimeException(s"Macro not found: $name") })
       case E.Select(expr, name) =>
         compile1(w, expr, env, theType, sub) match {
           case Left(m) => m.select(name)
