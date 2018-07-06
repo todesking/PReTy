@@ -2,7 +2,7 @@ package com.todesking.prety.universe
 
 import com.todesking.prety.Lang
 
-trait Templates { self: ForeignTypes with Preds with Graphs with Values with Worlds with Envs with Macros with Props with Debugging =>
+trait Templates { self: ForeignTypes with Preds with Graphs with Values with Worlds with Envs with Macros with Props with Debugging with Exprs =>
   case class Template(
     self: Value,
     ret: Value,
@@ -94,7 +94,7 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
         .headOption
         .map { src =>
           val paramss = query.paramss(f).map(_.map { p => query.name(p) -> query.returnType(p) })
-          Macro.method(world, query.name(f), src, query.returnType(f), paramss)
+          Macro.method(query.name(f), Lang.parseExpr(src), query.returnType(f), paramss)
         }
       buildTemplate(f, defs, env, makro)
     }
@@ -114,7 +114,7 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
             .map {
               case (k, v) =>
                 val target = if (k == "_") fv.ret else env.findValue(k)
-                val pred = world.preds.compile(target.tpe, v, env)
+                val pred = world.preds.compile(target.tpe, v, env.binding.mapValues(CoreExpr.ValueRef.apply))
                 target -> pred
             }
         }

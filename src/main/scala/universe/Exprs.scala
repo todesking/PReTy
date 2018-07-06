@@ -12,42 +12,38 @@ trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros w
   object Expr {
     import Lang.{ Expr => E }
     val CE = CoreExpr
-    // TODO: replace World to Macro env
-    def compile(w: World, ast: Lang.Expr, env: Env, theType: TypeSym): Expr =
-      compile(w, ast, env, theType, Map.empty)
 
-    def compile(w: World, ast: Lang.Expr, env: Env, theType: TypeSym, sub: Map[String, Expr]): Expr =
-      compile1(w, ast, env, theType, sub) match {
+    def compile(macroEnv: MacroEnv, env: Map[String, Expr], ast: Lang.Expr, theType: TypeSym): Expr =
+      compile1(macroEnv, env, ast, theType) match {
         case Right(e) => e
-        case Left(m) => m.expr
+        case Left(m) => m.expr(macroEnv)
       }
-    private[this] def compile1(w: World, ast: Lang.Expr, env: Env, theType: TypeSym, sub: Map[String, Expr]): Either[Macro, Expr] = ast match {
+    private[this] def compile1(macroEnv: MacroEnv, env: Map[String, Expr], ast: Lang.Expr, theType: TypeSym): Either[Macro, Expr] = ast match {
       case E.TheValue =>
         Right(CE.TheValue(theType))
       case E.Ident(name) =>
-        if (sub.contains(name)) Right(sub(name))
-        else Right(CE.ValueRef(env.findValue(name)))
+        Right(env(name))
       case E.LitInt(value) =>
         Right(CE.INT_Lit(value))
       case E.LitBoolean(value) =>
         Right(CE.BOOL_Lit(value))
       case E.Op(lhs, op, rhs) =>
-        val l = compile(w, lhs, env, theType, sub)
-        val r = compile(w, rhs, env, theType, sub)
-        val m = w.memberMakro(l.tpe, op, Seq(Seq(r.tpe))).getOrElse { throw new RuntimeException(s"Member macro not found: ${l.tpe}.$op(${r.tpe})") }
-        m.apply(Some(l), Seq(r), env)
+        val l = compile(macroEnv, env, lhs, theType)
+        val r = compile(macroEnv, env, rhs, theType)
+        val m = macroEnv.member(l.tpe, op, Seq(Seq(r.tpe))).getOrElse { throw new RuntimeException(s"Member macro not found: ${l.tpe}.$op(${r.tpe})") }
+        m.apply(macroEnv, Some(l), Seq(r))
       case E.MacroRef(name) =>
-        Left(w.makro(name).getOrElse { throw new RuntimeException(s"Macro not found: $name") })
+        Left(macroEnv.global(name).getOrElse { throw new RuntimeException(s"Macro not found: $name") })
       case E.Select(expr, name) =>
-        compile1(w, expr, env, theType, sub) match {
-          case Left(m) => m.select(name)
+        compile1(macroEnv, env, expr, theType) match {
+          case Left(m) => m.select(macroEnv, name)
           case Right(e) =>
             throw new RuntimeException(s"Invalid select: $ast")
         }
       case E.App(expr, args) =>
-        compile1(w, expr, env, theType, sub) match {
+        compile1(macroEnv, env, expr, theType) match {
           case Left(m) =>
-            m.apply(None, args.map(compile(w, _, env, theType, sub)), env)
+            m.apply(macroEnv, None, args.map(compile(macroEnv, env, _, theType)))
           case Right(e) =>
             throw new RuntimeException(s"Invalid app: $ast")
         }

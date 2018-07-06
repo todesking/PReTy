@@ -28,9 +28,9 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
   }
 
   class PredQuery(world: World) {
-    def compile(tpe: TypeSym, ast: Lang.Pred, env: Env): Pred = {
+    def compile(tpe: TypeSym, ast: Lang.Pred, env: Map[String, Expr]): Pred = {
       world.defaultPred(tpe).custom(
-        ast.self.map(Expr.compile(world, _, env, tpe)),
+        ast.self.map(Expr.compile(world.macroEnv, env, _, tpe)),
         ast.props.map {
           case (name, p) =>
             val key = world.propKey(tpe, name) getOrElse {
@@ -53,11 +53,10 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
 
   object Facade {
   }
-
   class World(
-    globalMakros: Map[String, Macro],
     customProps: Map[TypeSym, Prop],
-    customMembers: Map[DefSym, MemberDef]
+    customMembers: Map[DefSym, MemberDef],
+    val macroEnv: MacroEnv
   ){
     private[this] val templateRepo = new TemplateRepo(this)
 
@@ -102,7 +101,6 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
     def localTemplate(f: DefSym, env: Env): Template = localTemplates(f, env)
     def functionValue(f: DefSym): FunctionValue = functionValuess(f)
     def prop(tpe: TypeSym): Prop = props(tpe)
-    def makro(name: String): Option[Macro] = globalMakros.get(name)
     def defaultPred(t: TypeSym): Pred = defaultPreds(t)
     def memberMakro(t: TypeSym, name: String, argTypes: Seq[Seq[TypeSym]]): Option[Macro] =
       Some(query.lookupMember(t, name, query.types.any, argTypes)).flatMap { f =>
@@ -131,11 +129,23 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
     private[this] val makros = mu.Map.empty[String, Macro]
     private[this] val memberDefs = mu.Map.empty[DefSym, MemberDef]
 
-    def newWorld(): World = new World(
-      makros.toMap,
-      props.toMap,
-      memberDefs.toMap
-    )
+    def newWorld(): World = {
+      val macroMembers = memberDefs.flatMap { case (f, d) =>
+        d.makroAST.map { ast =>
+          f -> Macro.method(
+            query.name(f),
+            ast,
+            query.returnType(f),
+            d.paramNames.zip(query.paramss(f).map(_.map(query.returnType(_)))).map{ case (n, t) => n.zip(t) }
+          )
+        }
+      }.toMap
+      new World(
+        props.toMap,
+        memberDefs.toMap,
+        new MacroEnv(makros.toMap, macroMembers)
+      )
+    }
 
     def registerProp(p: Prop): Unit = {
       if (props.contains(p.tpe))
@@ -279,16 +289,16 @@ trait Worlds { self: ForeignTypes with Values with Templates with Props with Exp
     import scala.language.reflectiveCalls
     private[this] val T = query.types
     private[this] def opI(name: String, f: {def apply(l: CoreExpr, r:CoreExpr): CoreExpr}): (String, Macro) =
-      name -> Macro.fun(s"core.int.$name", T.int, T.int) { case (Seq(l: CoreExpr, r: CoreExpr), _) =>
+      name -> Macro.fun(s"core.int.$name", T.int, T.int) { case (_, Seq(l: CoreExpr, r: CoreExpr)) =>
         f.apply(l, r)
       }
     private[this] def opB(name: String, f: {def apply(l: CoreExpr, r:CoreExpr): CoreExpr}): (String, Macro) =
-      name -> Macro.fun(s"core.bool.$name", T.boolean, T.boolean) { case (Seq(l: CoreExpr, r: CoreExpr), _) =>
+      name -> Macro.fun(s"core.bool.$name", T.boolean, T.boolean) { case (_, Seq(l: CoreExpr, r: CoreExpr)) =>
         f.apply(l, r)
       }
 
     val genericEq = Macro.fun("core.eq", T.any, T.any) {
-      case (Seq(l: CoreExpr, r: CoreExpr), _) =>
+      case (_, Seq(l: CoreExpr, r: CoreExpr)) =>
         if(l.tpe <:< T.int && r.tpe <:< T.int)
           CoreExpr.INT_EQ(l, r)
         else if(l.tpe <:< T.boolean && r.tpe <:< T.boolean)
