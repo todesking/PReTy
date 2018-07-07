@@ -98,6 +98,7 @@ class IntegrationTest extends FunSpec {
         case (pos, msg) =>
           println(s"Unexpected Error: $pos, $msg")
       }
+      println(s"DONE: ${f.name}")
     }
 
     assert(unexpectedErrors.isEmpty)

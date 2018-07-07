@@ -8,7 +8,6 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
     ret: Value,
     argss: Seq[Seq[(String, Value)]],
     bindings: Map[Value, Pred],
-    makro: Option[Macro],
     propKey: Option[PropKey]) {
     override def toString =
       s"$self.(${argss.map(_.map { case (_, x) => s"${x}: ${bindings.get(x).map(_.toString) getOrElse "(none)"}" }.mkString("(", ", ", ")")).mkString("")}) = $ret: ${bindings.get(ret).map(_.toString) getOrElse "(none)"}; $bindings"
@@ -51,12 +50,12 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
   }
 
   class TemplateRepo(world: World) {
-    def register(f: DefSym, binding: Map[Value, Pred], makro: Option[Macro], propKey: Option[PropKey]): Unit = {
+    def register(f: DefSym, binding: Map[Value, Pred], propKey: Option[PropKey]): Unit = {
       if (templates.contains(f))
         throw new RuntimeException(s"register: Conflict: $f")
       // TODO: check preds type
       val fv = world.values.functionValue(f)
-      templates = templates + (f -> Template(fv.self, fv.ret, fv.paramss, binding, makro, propKey))
+      templates = templates + (f -> Template(fv.self, fv.ret, fv.paramss, binding, propKey))
     }
 
     def get(f: DefSym): Template = {
@@ -90,16 +89,10 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
       val defs =
         if (simples.nonEmpty) Lang.parseSingle(s"_: _ == ${simples.head}")
         else Lang.parse(srcs)
-      val makro = simples
-        .headOption
-        .map { src =>
-          val paramss = query.paramss(f).map(_.map { p => query.name(p) -> query.returnType(p) })
-          Macro.method(query.name(f), Lang.parseExpr(src), query.returnType(f), paramss)
-        }
-      buildTemplate(f, defs, env, makro)
+      buildTemplate(f, defs, env)
     }
 
-    private[this] def buildTemplate(f: DefSym, preds: Map[String, Lang.Pred], baseEnv: Env, makro: Option[Macro]): Template = {
+    private[this] def buildTemplate(f: DefSym, preds: Map[String, Lang.Pred], baseEnv: Env): Template = {
       // TODO: Check unknown pred target
       val fv = world.values.functionValue(f)
 
@@ -121,7 +114,7 @@ trait Templates { self: ForeignTypes with Preds with Graphs with Values with Wor
       val propKey =
         if (query.paramss(f).isEmpty) world.propKey(query.thisType(f), query.name(f))
         else None
-      Template(fv.self, fv.ret, fv.paramss, bindings, makro, propKey)
+      Template(fv.self, fv.ret, fv.paramss, bindings, propKey)
     }
   }
 }
