@@ -86,15 +86,15 @@ class IntegrationTest extends FunSpec {
     }
 
     if (debug) {
-      happendErrors.foreach {
+      happendErrors.toSeq.sortBy(_._1.line).foreach {
         case (pos, msg) =>
           println(s"Expected Error: $pos, $msg")
       }
-      nothappenedErrors.foreach {
+      nothappenedErrors.toSeq.sortBy(_._1.line).foreach {
         case (pos, msg) =>
           println(s"Error expected but not happend: $pos, $msg")
       }
-      unexpectedErrors.foreach {
+      unexpectedErrors.toSeq.sortBy(_._1.line).foreach {
         case (pos, msg) =>
           println(s"Unexpected Error: $pos, $msg")
       }
