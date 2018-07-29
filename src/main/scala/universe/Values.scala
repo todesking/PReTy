@@ -13,20 +13,21 @@ trait Values { self: ForeignTypes with Constraints with Preds with Props =>
       UnknownPred.OfValue(v)
 
     sealed abstract class Naked extends Value
+    sealed abstract class Root extends Naked
 
-    case class Origin(id: Int, name: String, tpe: TypeSym) extends Naked {
+    case class Origin(id: Int, name: String, tpe: TypeSym) extends Root {
       override def toString = s"#$id($name: $tpe)"
       override val shortString = s"#$id"
       override def naked = this
     }
-    case class IntLiteral(v: Int) extends Naked {
+    case class IntLiteral(v: Int) extends Root {
       override val name = s"int($v)"
       override val shortString = s"$v"
       override val tpe = query.types.int
       override def naked = this
       override val toString = name
     }
-    case class BooleanLiteral(v: Boolean) extends Naked {
+    case class BooleanLiteral(v: Boolean) extends Root {
       override val name = s"boolean($v)"
       override val shortString = s"$v"
       override val tpe = query.types.boolean

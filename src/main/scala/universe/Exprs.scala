@@ -7,6 +7,8 @@ trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros w
     def tpe: TypeSym
     def substitute(mapping: Map[Value, Value]): Expr
     def messageString: String
+    // Referenced values in the expr
+    def values: Set[Value.Naked]
     def &(rhs: Expr): Expr
   }
   object Expr {
@@ -64,6 +66,7 @@ trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros w
             CoreExpr.And(Seq(e2, e))
         }
     }
+    override def values = children.flatMap(_.values).toSet
   }
   object CoreExpr {
     import query.{ types => T }
@@ -78,6 +81,7 @@ trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros w
     }
     sealed trait Leaf extends CoreExpr {
       override def children = Seq()
+      override def values = Set()
     }
 
     case class And(es: Seq[CoreExpr]) extends CoreExpr {
@@ -94,6 +98,7 @@ trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros w
     case class TheValue(tpe: TypeSym) extends Leaf {
       override def substitute(mapping: Map[Value, Value]) = this
       override def toString = s"_"
+      override def values = Set()
     }
     case class ValueRef(value: Value) extends Leaf {
       override def tpe = value.tpe
@@ -101,6 +106,7 @@ trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros w
         mapping.get(value).map(ValueRef.apply) getOrElse this
       override def toString = value.shortString
       override def messageString = value.name
+      override def values = Set(value.naked)
     }
 
     case class INT_Lit(value: Int) extends Leaf {

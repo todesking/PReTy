@@ -5,6 +5,12 @@ import com.todesking.prety.SMT
 import com.todesking.prety.LogicCompiler
 
 trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with Conflicts with Preds with Envs with Preds with Props with Exprs with Worlds with Debugging =>
+  class Binding(b: Map[Value.Naked, Pred]) {
+    def roots: Set[Value.Root] = ???
+    def apply(v: Value.Naked): Pred = ???
+    def expr(v: Value.Naked): Expr = apply(v).self
+  }
+
   class Solver(world: World) {
     private[this] val valueRepo = world.values
 
@@ -12,80 +18,67 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
       solveSMT(g.groundConstraints, g.binding)
 
     def solveSMT(constraints: Seq[GroundConstraint], binding: Map[Value.Naked, Pred]): Seq[Conflict] = {
+      val b = new Binding(binding)
       val (ls, cs) =
-        constraints.map(compileConstraint(_, binding))
+        constraints.map(compileConstraint(_, b))
           .foldLeft((Seq.empty[LogicConstraint], Seq.empty[Conflict])) {
             case ((al, ac), (l, c)) =>
               (al :+ l, ac ++ c)
           }
-      cs ++ runSMT(ls, binding)
+      cs ++ runSMT(ls, binding) // NOTE: binding is just for debugging purpose
     }
 
-    private[this] def compileConstraint(c: GroundConstraint, binding: Map[Value.Naked, Pred]): (LogicConstraint, Seq[Conflict]) = {
-      val pcs = propConstraints(c).map { case (path, l, r) => (path, simplify(l), simplify(r)) }
-      dprint("Compilation of", pos(c.focus), c.focus.shortString, c)
-      pcs.foreach {
-        case (path, l, r) =>
-          dprint("  ", path.map(_.name).mkString("/", "/", ""), l, "<=", r)
-      }
+    private[this] def compileConstraint(c: GroundConstraint, binding: Binding): (LogicConstraint, Seq[Conflict]) = {
 
-      val env = Logic.and(binding.map {
-        case (v, p) =>
-          val e = simplify(p.self)
-          compileTrivial(v, e) getOrElse {
-            world.prop(v.tpe).toLogic(e, v)
-          }
-      }.toSeq)
-
-      def condsToLogic(l: Map[Value.Naked, Pred], not: Boolean) =
-        // TODO: [BUG] check child props
-        l.map {
-          case (value, pred) =>
-            if (not) {
-              world.prop(query.types.boolean).toLogic(pred.self, value) & !propInLogicB(value, Seq())
-            } else {
-              world.prop(query.types.boolean).toLogic(pred.self, value) & propInLogicB(value, Seq())
-            }
-        }.reduceOption(_ & _) getOrElse Logic.True
-      val condPreds = binding.filterKeys(c.env.conds.map(_.naked))
-      val uncondPreds = binding.filterKeys(c.env.unconds.map(_.naked))
-      val condLogic = condsToLogic(condPreds, not = false)
-      val uncondLogic = condsToLogic(uncondPreds, not = true)
-
-      condPreds.foreach {
-        case (v, p) =>
-          dprint("  Cond:", v, p)
-      }
-      uncondPreds.foreach {
-        case (v, p) =>
-          dprint("  Uncond:", v, p)
-      }
-
-      val xs =
-        pcs.map {
-          case (path, l, r) =>
-            solveTrivial(l, r) getOrElse {
-              world
-                .prop(path.lastOption.map(_.tpe) getOrElse c.tpe)
-                .solveConstraint(c.focus, path, env & condLogic & uncondLogic, binding, l, r)
-            }
+      def allValues(p1: Pred, p2: Pred): Set[Value.Naked] = {
+        val v1: Set[Value.Naked] = p1.customSelf.toSet.flatMap{a:Expr => a.values} // TODO: Why inference failed?
+        val v2 : Set[Value.Naked]= p2.customSelf.toSet.flatMap{a: Expr => a.values}
+        val v3 : Set[Value.Naked]= (p1.propKeys ++ p2.propKeys).flatMap { k =>
+          // TODO: if(p1.hasKey(k) && !p2.hasKey(k))
+          if(p1.customized(k) || p2.customized(k)) allValues(p1.prop(k), p2.prop(k)): Set[Value.Naked]
+          else Set.empty[Value.Naked]
         }
+        v1 ++ v2 ++ v3
+      }
 
-      val logics = xs.flatMap(_._1)
-      val conflicts = xs.flatMap(_._2)
+      def expand(seed: Set[Value.Naked], done: Set[Value.Naked]): Set[Value.Naked] = ???
+
+      val depValues = expand(
+        allValues(c.lhs, c.rhs) ++ (c.env.conds ++ c.env.unconds).flatMap(v => binding.expr(v.naked).values),
+        Set()
+      )
+
+      val env: Map[Value.Naked, Expr] = depValues.map { v => v -> binding.expr(v) }.toMap
+      def compileEnv(v: Value.Naked, e: Expr): Logic.LBool  = {
+        compileTrivial(v, e) getOrElse {
+          world.prop(v.tpe).toLogic(e, v)
+        }
+      }
+
+      val envLogic: Logic.LBool = Logic.and(env.map { case (v, e) =>
+        compileEnv(v, e)
+      })
+
+      def flatten(p1: Pred, p2: Pred): Map[Value.Naked, (Expr, Expr)] = ???
+      val flatConstraints: Map[Value.Naked, (Expr, Expr)] = flatten(c.lhs, c.rhs)
+
+      val logics: Seq[Logic.LBool] = flatConstraints.map { case (v, (l, r)) =>
+        (simplify(l), simplify(r)) match {
+          case (_, Expr.True) => Logic.True
+          case (l, r) if l == r => Logic.True
+          case (l, r) =>
+            // DF{id: Int} <: DF{id: Int, name: String}
+      }
+      val conflicts : Seq[Conflict] = ???
       (LogicConstraint(c, Logic.and(logics).universalQuantifiedForm), conflicts)
     }
 
+    // TODO: compileCoreExpr
     private[this] def compileTrivial(v: Value.Naked, e: Expr): Option[Logic.LBool] = e match {
       case CoreExpr.BOOL_Lit(b) => Some(Logic.BValue(b))
       case _ => None
     }
 
-    private[this] def solveTrivial(l: Expr, r: Expr): Option[(Seq[Logic.LBool], Seq[Conflict])] = (simplify(l), simplify(r)) match {
-      case (_, CoreExpr.True) => Some((Seq(), Seq()))
-      case (l, r) if l == r => Some((Seq(), Seq()))
-      case _ => None
-    }
     private[this] def simplify(e: Expr): Expr = e match {
       case CoreExpr.And(es) =>
         es.map(simplify).filterNot(_ == CoreExpr.True) match {
@@ -96,20 +89,6 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
             else CoreExpr.And(es.asInstanceOf[Seq[CoreExpr]]) // TODO: Why typecheck failed
         }
       case e => e
-    }
-
-    private[this] def propConstraints(c: GroundConstraint): Seq[(Seq[PropKey], Expr, Expr)] = {
-      def gather(l: Pred, r: Pred, path: Seq[PropKey]): Seq[(Seq[PropKey], Expr, Expr)] = {
-        (path, l.self, r.self) +: r.propKeys.toSeq.flatMap { k =>
-          if (l.customized(k) || r.customized(k))
-            gather(l.prop(k), r.prop(k), path :+ k)
-          else
-            Seq()
-        }
-      }
-      val l = c.lhs.cast(c.rhs.tpe)
-      val r = c.rhs
-      gather(l, r, Seq())
     }
 
     private[this] def pos(v: Value) = valueRepo.getPos(v) match {

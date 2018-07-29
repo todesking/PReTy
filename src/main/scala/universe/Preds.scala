@@ -17,6 +17,8 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
     def customized(k: PropKey): Boolean =
       customPropKeys.contains(k)
 
+    def customSelf: Option[Expr]
+
     // TODO: check requirements
     // TODO: check prop consistency(where?)
     def custom(self: Expr): Pred.Custom =
@@ -68,6 +70,7 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
     }
 
     case class Default(tpe: TypeSym, self: Expr, propKeys: Set[PropKey], defaultPred: PropKey => Pred) extends Pred {
+      override def customSelf = None
       override def prop(key: PropKey) = defaultPred(key)
       override def customPropKeys = Set()
     }
@@ -82,13 +85,16 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
     case class Substitute(original: Pred, mapping: Map[Value, Value]) extends Pred {
       override def tpe = original.tpe
       override def self = original.self.substitute(mapping)
+      override def customSelf = original.customSelf.map(_.substitute(mapping))
       override def prop(key: PropKey) = original.prop(key).substitute(mapping)
       override def propKeys = original.propKeys
       override def customPropKeys = original.customPropKeys
     }
+    // TODO: Do I really need it?
     case class Cast(original: Pred, tpe: TypeSym) extends Pred {
       // TODO: check requirements
 
+      override def customSelf = original.customSelf
       override def self = original.self
       override def prop(key: PropKey) = original.prop(key)
       override def propKeys = original.propKeys.filter(_.isTarget(tpe))
