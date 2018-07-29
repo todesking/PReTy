@@ -7,7 +7,7 @@ sealed abstract class Logic {
   def substituteChild(f: PartialFunction[Logic, Logic]): Logic
 }
 object Logic {
-  def and(ls: Iterable[Logic.LBool]): Logic.LBool = ls match {
+  def and(ls: Iterable[Logic.LBool]): Logic.LBool = ls.toSeq match {
     case Seq() => True
     case Seq(l) => l
     case many => many.reduce(_ & _)

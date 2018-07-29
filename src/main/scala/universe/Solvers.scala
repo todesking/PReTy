@@ -54,7 +54,7 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
       }
 
       val depValues = expand(
-        allValues(c.lhs, c.rhs) ++ (c.env.conds ++ c.env.unconds).flatMap(v => binding.expr(v.naked).values),
+        allValues(c.lhs, c.rhs) ++ (c.env.conds ++ c.env.unconds).flatMap(v => binding.expr(v.naked).values + v.naked),
         Set())
 
       val env: Map[Value.Naked, Expr] = depValues.map { v => v -> binding.expr(v) }.toMap
@@ -64,35 +64,37 @@ trait Solvers { self: ForeignTypes with Values with Graphs with Constraints with
         }
       }
 
+      def condLogic = Logic.and(c.env.conds.map { v =>
+        world.prop(query.types.boolean).toLogic(env(v.naked), v) & propInLogicB(v.root, v.path)
+      } ++ c.env.unconds.map { v =>
+        world.prop(query.types.boolean).toLogic(env(v.naked), v) & !propInLogicB(v.root, v.path)
+      })
+
       // todo: conditions
       val envLogic: Logic.LBool = Logic.and(env.map {
         case (v, e) =>
           compileEnv(v, e)
-      })
+      }) & condLogic
 
-      def flatten(l: Pred, r: Pred, path: Seq[PropKey]): Map[Seq[PropKey], (Expr, Expr)] = {
+      def flatten(l: Pred, r: Pred, value: Value.Naked): Map[Value.Naked, (Expr, Expr)] = {
         val self =
-          for {
-            s1 <- l.customSelf
-            s2 <- r.customSelf
-            if s1 != s2
-          } yield (path, (s1, s2))
+          r.customSelf.filterNot(_ == l.self).map { s => (value, (l.self, r.self)) }
         val children =
           r.customPropKeys.flatMap { k =>
-            flatten(l.prop(k), r.prop(k), path :+ k)
+            flatten(l.prop(k), r.prop(k), Value.PropValue(value, k))
           }.toMap
         children ++ self
       }
 
-      val flatConstraints: Map[Seq[PropKey], (Expr, Expr)] = flatten(c.lhs, c.rhs, Seq())
+      val flatConstraints: Map[Value.Naked, (Expr, Expr)] = flatten(c.lhs, c.rhs, c.focus.naked)
 
       val compiled: Seq[Either[Seq[Conflict], Logic.LBool]] = flatConstraints.map {
-        case (p, (l, r)) =>
+        case (v, (l, r)) =>
           (simplify(l), simplify(r)) match {
             case (_, CoreExpr.True) => Right(Logic.True)
             case (l, r) if l == r => Right(Logic.True)
             case (l, r) =>
-              world.prop(p.lastOption.map(_.tpe).getOrElse(c.tpe)).solveConstraint(p, envLogic, l, r)
+              world.prop(v.tpe).solveConstraint(v, envLogic, l, r)
           }
       }.toSeq
       val conflicts: Seq[Conflict] = compiled.collect { case Left(c) => c }.flatten
