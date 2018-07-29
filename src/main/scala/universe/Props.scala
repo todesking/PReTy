@@ -19,6 +19,10 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
     v
   }
 
+  // TODO: OH dirty
+  private[this] lazy val vInt = Value.Origin(-1, "_", query.types.int)
+  private[this] lazy val vBool = Value.Origin(-2, "_", query.types.boolean)
+
   private[this] var prop2l = Map[(Value.Naked, Seq[PropKey]), Logic]()
   def propInLogic(value: Value, path: Seq[PropKey]): Logic =
     // TODO: [BUG] support path
@@ -63,7 +67,7 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
 
   trait Prop {
     val tpe: TypeSym
-    def solveConstraint(theValue: Value, path: Seq[PropKey], env: Logic.LBool, binding: Map[Value.Naked, Pred], lhs: Expr, rhs: Expr): (Seq[Logic.LBool], Seq[Conflict])
+    def solveConstraint(path: Seq[PropKey], env: Logic.LBool, lhs: Expr, rhs: Expr): Either[Seq[Conflict], Logic.LBool]
     // pred.tpe == this.tpe
     // pred(theValue) --> result
     def toLogic(pred: Expr, theValue: Value): Logic.LBool
@@ -74,14 +78,18 @@ trait Props { self: ForeignTypes with Values with Preds with Exprs with Conflict
       case e: CoreExpr => compileB(e, propInLogic(theValue, Seq()))
     }
 
-    override def solveConstraint(theValue: Value, path: Seq[PropKey], env: Logic.LBool, binding: Map[Value.Naked, Pred], lhs: Expr, rhs: Expr) = (lhs, rhs) match {
+    override def solveConstraint(path: Seq[PropKey], env: Logic.LBool, lhs: Expr, rhs: Expr) = (lhs, rhs) match {
       case (l: CoreExpr, r: CoreExpr) =>
         // TODO: check base type constraint
-        val v = propInLogic(theValue, path)
+        val root =
+          if (tpe == query.types.int) vInt
+          else if (tpe == query.types.boolean) vBool
+          else ???
+        val v = propInLogic(root, path)
 
         val logicL = compileB(l, v)
         val logicR = compileB(r, v)
-        (Seq((env & logicL) --> logicR), Seq())
+        Right((env & logicL) --> logicR)
       case _ =>
         throw new RuntimeException(s"Unsupported pred pair: $lhs, $rhs")
     }

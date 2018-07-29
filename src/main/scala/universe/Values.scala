@@ -6,6 +6,8 @@ trait Values { self: ForeignTypes with Constraints with Preds with Props =>
     val shortString: String = toString
     val tpe: TypeSym
     def naked: Value.Naked
+    def root: Value.Root
+    def path: Seq[PropKey]
   }
   object Value {
     import scala.language.implicitConversions
@@ -13,7 +15,10 @@ trait Values { self: ForeignTypes with Constraints with Preds with Props =>
       UnknownPred.OfValue(v)
 
     sealed abstract class Naked extends Value
-    sealed abstract class Root extends Naked
+    sealed abstract class Root extends Naked {
+      override def root = this
+      override def path = Seq()
+    }
 
     case class Origin(id: Int, name: String, tpe: TypeSym) extends Root {
       override def toString = s"#$id($name: $tpe)"
@@ -40,6 +45,8 @@ trait Values { self: ForeignTypes with Constraints with Preds with Props =>
       override val tpe = target.tpe
       override def naked = target.naked
       override val toString = name
+      override def root = target.root
+      override def path = target.path
     }
     case class PropValue(self: Naked, key: PropKey) extends Naked {
       require(self.tpe <:< key.targetType)
@@ -48,6 +55,8 @@ trait Values { self: ForeignTypes with Constraints with Preds with Props =>
       override val tpe = key.tpe
       override def naked = this
       override val toString = name
+      override def root = self.root
+      override def path = self.path :+ key
     }
   }
 

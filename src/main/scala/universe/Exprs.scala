@@ -95,6 +95,7 @@ trait Exprs { self: ForeignTypes with Values with Envs with Worlds with Macros w
         es.map(e => s"($e)").mkString(" & ")
     }
 
+    // TODO: rm
     case class TheValue(tpe: TypeSym) extends Leaf {
       override def substitute(mapping: Map[Value, Value]) = this
       override def toString = s"_"

@@ -11,6 +11,8 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
     // where pred.tpe <:< key.tpe
     // TODO: check requirements of key
     def prop(key: PropKey): Pred
+    def prop(path: Seq[PropKey]): Pred =
+      path.foldLeft(this) { (pred, p) => pred.prop(p) }
 
     def propKeys: Set[PropKey]
     def customPropKeys: Set[PropKey]
@@ -27,6 +29,17 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
     // TODO: self: Expr
     def custom(self: Option[Expr], props: Map[PropKey, Pred]): Pred.Custom =
       Pred.Custom(this, self, props)
+
+    def custom(path: Seq[PropKey], pred: Pred): Pred = {
+      if (path.isEmpty) {
+        require(pred.tpe == this.tpe)
+        val cs = if (pred.self == this.self) None else Some(pred.self)
+        custom(cs, pred.customPropKeys.map { k => k -> pred.prop(k) }.toMap)
+      } else {
+        val k = path.head
+        custom(None, Map(k -> prop(k).custom(path.tail, pred)))
+      }
+    }
 
     // where this.tpe <:< tpe
     // where _.tpe <:< tpe
@@ -74,6 +87,7 @@ trait Preds { self: ForeignTypes with Values with Props with Envs with Exprs wit
       override def prop(key: PropKey) = defaultPred(key)
       override def customPropKeys = Set()
     }
+    // TODO: AND to default pred
     case class Custom(original: Pred, customSelf: Option[Expr], customProps: Map[PropKey, Pred]) extends Pred {
       override def tpe = original.tpe
       // TODO: check requirements
